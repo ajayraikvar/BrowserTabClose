@@ -9,6 +9,7 @@ let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let isActiveTab = false;
 let activityTimer;
+const WARNING_SECONDS = 10;
 
 function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -18,7 +19,7 @@ function formatTime(seconds) {
 
 function render() {
   panel.hidden = false;
-  if (idleState === "active") {
+  if (idleState === "active" && remainingSeconds > WARNING_SECONDS) {
     const activityMessage = isActiveTab ? "You are active on this tab." : "You are active in another tab.";
     panel.innerHTML = `<strong>EdgeClose</strong><span>${activityMessage}</span><b>${formatTime(remainingSeconds)} available when inactive</b>`;
     return;
@@ -50,8 +51,9 @@ function reportActivity() {
 reportActivity();
 
 setInterval(() => {
-  if (idleState !== "active" && remainingSeconds > 0) {
+  if (remainingSeconds > 0) {
     remainingSeconds -= 1;
+    if (remainingSeconds <= WARNING_SECONDS) idleState = "warning";
     render();
   }
 }, 1000);

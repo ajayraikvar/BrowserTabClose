@@ -23,7 +23,7 @@ body {
 }
 
 .page-shell {
-  width: min(100% - 40px, 680px);
+  width: min(100% - 40px, 920px);
   margin: 0 auto;
   padding: 72px 0 80px;
 }
@@ -57,6 +57,7 @@ h1 {
 }
 
 .settings-panel {
+  min-width: 0;
   padding: 30px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -162,9 +163,13 @@ button {
 }
 
 .update-panel {
-  margin-top: 42px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
+  min-width: 0;
+  margin-top: 36px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 10px 12px 0 #f1d9ce;
 }
 
 .update-panel h2 {
@@ -227,5 +232,10 @@ button {
   .settings-panel {
     padding: 22px;
     box-shadow: 6px 8px 0 var(--mint);
+  }
+
+  .update-panel {
+    padding: 22px;
+    box-shadow: 6px 8px 0 #f1d9ce;
   }
 }
