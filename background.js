@@ -71,7 +71,14 @@ function warningAlarmName(tabId) {
 
 async function getLastActivity(tabId) {
   const stored = await chrome.storage.session.get({ lastActivity: {} });
-  return Number(stored.lastActivity[tabId]) || Date.now();
+  const activity = Number(stored.lastActivity[tabId]);
+  if (activity) return activity;
+
+  const timestamp = Date.now();
+  await chrome.storage.session.set({
+    lastActivity: { ...stored.lastActivity, [tabId]: timestamp }
+  });
+  return timestamp;
 }
 
   async function isInheritedTab(tabId) {
@@ -118,7 +125,10 @@ async function broadcastStatus() {
     if (!Number.isInteger(tab.id) || !tab.url || !(await isMatchingTab(tab))) {
       return;
     }
-    const elapsedSeconds = Math.floor((Date.now() - await getLastActivity(tab.id)) / 1000);
+    const lastActivity = await getLastActivity(tab.id);
+    const alarm = await chrome.alarms.get(closeAlarmName(tab.id));
+    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, timeoutSeconds);
+    const elapsedSeconds = Math.floor((Date.now() - lastActivity) / 1000);
     const isWarning = elapsedSeconds >= timeoutSeconds - WARNING_SECONDS;
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
@@ -148,10 +158,12 @@ async function configureIdleDetection() {
 
 chrome.runtime.onInstalled.addListener(() => {
   configureIdleDetection();
+  broadcastStatus();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   configureIdleDetection();
+  broadcastStatus();
 });
 
 chrome.action.onClicked.addListener(() => {
@@ -228,3 +240,4 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 configureIdleDetection();
+broadcastStatus();
