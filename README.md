@@ -24,3 +24,23 @@ Each website has its own inactivity timeout, warning lead time, and optional war
 The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. The user can choose how many seconds before timeout the warning appears, then the tab closes if the user remains inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
 The settings page automatically checks GitHub releases when opened and every six hours. It shows the installed version and available published release versions. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.
+
+## Administrator-only uninstall
+
+The extension cannot prevent uninstall through JavaScript or `manifest.json`. An organization administrator must force-install it with Microsoft Edge enterprise policy. A force-installed extension cannot be removed by a normal user; the administrator must remove the policy first.
+
+For a signed Edge Add-ons or self-hosted package, configure the Windows policy `ExtensionInstallForcelist` under:
+
+```text
+HKLM\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist
+```
+
+Create a string value such as `1` with this format:
+
+```text
+EXTENSION_ID;UPDATE_MANIFEST_URL
+```
+
+Use the extension ID from `edge://extensions`. The update manifest URL must point to the signed package's supported update manifest. Do not use the GitHub repository URL as an update manifest. This policy requires administrator access and should be deployed through Group Policy or Microsoft Intune.
+
+The current GitHub folder is an unpacked development build. It can be loaded for testing, but administrator-only uninstall and automatic updates require a packaged deployment through Edge Add-ons or an enterprise-managed update server.
