@@ -35,7 +35,11 @@ try {
     Copy-Item -Path (Join-Path $sourceRoot.FullName '*') -Destination $installRoot -Recurse -Force
 
     Write-Host "EdgeClose $($manifest.version) is ready at $installRoot"
-    Write-Host 'Opening Edge extensions. Enable Developer mode, choose Load unpacked, and select this folder.'
+    Write-Host ''
+    Write-Host 'In Edge: enable Developer mode, choose Load unpacked, and select:'
+    Write-Host $installRoot
+    Write-Host ''
+    Write-Host 'This final browser confirmation is required for an unpacked extension.'
     Start-Process 'msedge.exe' -ArgumentList 'edge://extensions'
     Write-Host 'Installation files are ready. Complete the single Load unpacked step in Edge.'
 }

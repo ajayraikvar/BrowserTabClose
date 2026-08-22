@@ -58,3 +58,12 @@ The batch file targets only the configured EdgeClose Extension ID. It does not g
 ### One-click GitHub installer
 
 Run `install-edgeclose.bat` to request administrator rights, download the latest `main` branch from GitHub, install the files under `%ProgramData%\EdgeClose`, validate `manifest.json`, and open `edge://extensions`. Edge still requires one manual **Load unpacked** selection of `%ProgramData%\EdgeClose`; this final click cannot be automated by a batch file because Edge blocks silent unpacked-extension installation. This installer does not grant the extension extra browser permissions and does not prevent uninstall by itself.
+
+You can also run it directly from an already elevated PowerShell window:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& .\install-edgeclose.ps1
+```
+
+The command performs the download and installation preparation automatically. Administrator PowerShell does not remove Edge's final confirmation for an unpacked extension. To install without that click, the extension must be signed and deployed using Edge Add-ons or an enterprise force-install policy.
