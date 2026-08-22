@@ -17,6 +17,8 @@ https://www.example.com/*
 https://social.example/*
 ```
 
+You can also enter a domain without a protocol, such as `rgpvdiploma.in`; this matches the domain, its `www` version, and all page paths.
+
 The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. EdgeClose displays a warning during the final 10 seconds, then closes the tab if you remain inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
 The settings page automatically checks GitHub releases when opened and every six hours. It shows the installed version and available published release versions. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.

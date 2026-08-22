@@ -40,8 +40,20 @@ function patternMatchesUrl(pattern, url) {
     return false;
   }
 
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped.replace(/\*/g, ".*")}$`, "i").test(url);
+  const trimmedPattern = pattern.trim();
+  if (!trimmedPattern.includes("://")) {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      const domainPattern = trimmedPattern.replace(/^\*\.?/, "").replace(/^www\./i, "");
+      const escapedDomain = domainPattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      return new RegExp(`(^|\\.)${escapedDomain}$`, "i").test(hostname.replace(/^www\./i, ""));
+    } catch {
+      return false;
+    }
+  }
+
+  const escaped = trimmedPattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped.replace(/\*/g, ".*")}\/?$`, "i").test(url);
 }
 
 async function isMatchingTab(tab) {
