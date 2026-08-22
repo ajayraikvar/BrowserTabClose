@@ -67,3 +67,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 The command performs the download and installation preparation automatically. Administrator PowerShell does not remove Edge's final confirmation for an unpacked extension. To install without that click, the extension must be signed and deployed using Edge Add-ons or an enterprise force-install policy.
+
+### Pack as CRX
+
+Run `pack-edgeclose.bat` to create a packed `dist\EdgeClose-<version>.crx` package using Microsoft Edge. The first run also creates `dist\edgeclose.pem`, the signing key. Keep this key private and backed up; it is required for future updates to keep the same extension ID. The `.crx` can be installed manually from `edge://extensions` with Developer mode enabled.
+
+Packing does not bypass Edge's installation security. Automatic installation and administrator-only uninstall still require the signed package to be deployed with Edge enterprise policy or published in Edge Add-ons.
