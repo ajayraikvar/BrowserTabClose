@@ -58,7 +58,7 @@ function patternMatchesUrl(pattern, url) {
 
 async function isMatchingTab(tab) {
   const { patterns } = await getSettings();
-  return patterns.some((pattern) => patternMatchesUrl(pattern, tab.url));
+  return patterns.some((pattern) => patternMatchesUrl(pattern, tab.url)) || await isInheritedTab(tab.id);
 }
 
 function closeAlarmName(tabId) {
@@ -73,6 +73,16 @@ async function getLastActivity(tabId) {
   const stored = await chrome.storage.session.get({ lastActivity: {} });
   return Number(stored.lastActivity[tabId]) || Date.now();
 }
+
+  async function isInheritedTab(tabId) {
+    const stored = await chrome.storage.session.get({ inheritedTabs: {} });
+    return stored.inheritedTabs[tabId] === true;
+  }
+
+  async function setInheritedTab(tabId) {
+    const stored = await chrome.storage.session.get({ inheritedTabs: {} });
+    await chrome.storage.session.set({ inheritedTabs: { ...stored.inheritedTabs, [tabId]: true } });
+  }
 
 async function markTabActive(tabId) {
   const timestamp = Date.now();
@@ -122,9 +132,8 @@ async function broadcastStatus() {
 }
 
 async function closeTabIfStillInactive(tabId) {
-  const { patterns } = await getSettings();
   const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (!tab || !patterns.some((pattern) => patternMatchesUrl(pattern, tab.url))) return;
+  if (!tab || !(await isMatchingTab(tab))) return;
   const lastActivity = await getLastActivity(tabId);
   const { timeoutSeconds } = await getSettings();
   if (Date.now() - lastActivity >= timeoutSeconds * 1000) {
@@ -153,6 +162,14 @@ chrome.tabs.onActivated.addListener(() => {
   broadcastStatus();
 });
 
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!Number.isInteger(tab.id) || !Number.isInteger(tab.openerTabId)) return;
+  const opener = await chrome.tabs.get(tab.openerTabId).catch(() => null);
+  if (!opener || !(await isMatchingTab(opener))) return;
+  await setInheritedTab(tab.id);
+  await markTabActive(tab.id);
+});
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "complete") {
     markTabActive(tabId);
@@ -163,7 +180,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   const stored = await chrome.storage.session.get({ lastActivity: {} });
   delete stored.lastActivity[tabId];
+  const inheritedTabs = await chrome.storage.session.get({ inheritedTabs: {} });
   await chrome.storage.session.set({ lastActivity: stored.lastActivity });
+  delete inheritedTabs.inheritedTabs[tabId];
+  await chrome.storage.session.set({ inheritedTabs: inheritedTabs.inheritedTabs });
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
 });
