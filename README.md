@@ -19,6 +19,8 @@ https://social.example/*
 
 You can also enter a domain without a protocol, such as `rgpvdiploma.in`; this matches the domain, its `www` version, and all page paths.
 
+Each website has its own inactivity timeout, warning lead time, and optional warning sound. Use **Add website** in the Options page to configure multiple sites independently. Sound is played once when that website enters its warning period. Enable sound for a site and interact with it once after loading so the browser permits warning audio playback.
+
 The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. The user can choose how many seconds before timeout the warning appears, then the tab closes if the user remains inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
 The settings page automatically checks GitHub releases when opened and every six hours. It shows the installed version and available published release versions. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.

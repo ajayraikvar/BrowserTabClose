@@ -15,23 +15,15 @@
     </header>
 
     <form id="settings-form" class="settings-panel">
-      <label class="field-label" for="timeout">Inactivity timeout</label>
-      <div class="timeout-row">
-        <input id="timeout" name="timeout" type="number" min="15" max="86400" step="1" required>
-        <span>seconds</span>
+      <div class="section-heading">
+        <div>
+          <p class="field-label">Monitored websites</p>
+          <p class="field-help">Set a separate timer, warning period, and sound for every website.</p>
+        </div>
+        <button type="button" id="add-site" class="secondary-button">Add website</button>
       </div>
-      <p class="field-help">Set how long this tab may be inactive. The warning appears during the final warning period.</p>
-
-      <label class="field-label" for="warning">Warning before closing</label>
-      <div class="timeout-row">
-        <input id="warning" name="warning" type="number" min="1" max="899" step="1" required>
-        <span>seconds before timeout</span>
-      </div>
-      <p class="field-help">Choose when the warning popup should appear. It must be shorter than the inactivity timeout.</p>
-
-      <label class="field-label" for="patterns">Websites to close</label>
-      <textarea id="patterns" name="patterns" rows="7" placeholder="https://www.example.com/*&#10;https://social.example/*"></textarea>
-      <p class="field-help">One domain or URL pattern per line. For example, <code>rgpvdiploma.in</code> matches all its pages.</p>
+      <div id="site-list" class="site-list"></div>
+      <p id="empty-sites" class="empty-state">No websites configured yet.</p>
 
       <div class="actions">
         <button type="submit" class="primary-button">Save settings</button>

@@ -10,6 +10,9 @@ let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let isActiveTab = false;
 let activityTimer;
+let soundEnabled = true;
+let warningSoundPlayed = false;
+let audioContext;
 
 function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -25,6 +28,24 @@ function render() {
 
   panel.hidden = false;
   panel.innerHTML = `<strong>EdgeClose warning</strong><span>You have been inactive. This tab will close soon.</span><b>Closing in ${formatTime(remainingSeconds)}</b>`;
+  if (soundEnabled && !warningSoundPlayed) {
+    warningSoundPlayed = true;
+    playWarningSound();
+  }
+}
+
+function playWarningSound() {
+  if (!audioContext) audioContext = new AudioContext();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.frequency.value = 880;
+  oscillator.type = "sine";
+  gain.gain.setValueAtTime(0.12, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.35);
 }
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -34,6 +55,8 @@ chrome.runtime.onMessage.addListener((message) => {
   idleState = message.idleState;
   remainingSeconds = message.remainingSeconds;
   isActiveTab = message.isActiveTab;
+  soundEnabled = message.soundEnabled;
+  if (idleState === "active") warningSoundPlayed = false;
   render();
 });
 
@@ -43,6 +66,8 @@ function reportActivity() {
 
 ["pointerdown", "keydown", "wheel", "touchstart"].forEach((eventName) => {
   window.addEventListener(eventName, () => {
+    if (!audioContext) audioContext = new AudioContext();
+    if (audioContext.state === "suspended") audioContext.resume();
     window.clearTimeout(activityTimer);
     activityTimer = window.setTimeout(reportActivity, 150);
   }, { capture: true, passive: true });

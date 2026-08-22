@@ -1,12 +1,11 @@
-const DEFAULT_SETTINGS = {
-  timeoutSeconds: 900,
-  patterns: []
-};
+const DEFAULT_SETTINGS = { sites: [] };
+const DEFAULT_TIMEOUT_SECONDS = 900;
+const DEFAULT_WARNING_SECONDS = 10;
 
 const form = document.querySelector("#settings-form");
-const timeoutInput = document.querySelector("#timeout");
-const warningInput = document.querySelector("#warning");
-const patternsInput = document.querySelector("#patterns");
+const siteList = document.querySelector("#site-list");
+const emptySites = document.querySelector("#empty-sites");
+const addSiteButton = document.querySelector("#add-site");
 const resetButton = document.querySelector("#reset");
 const status = document.querySelector("#status");
 const checkUpdatesButton = document.querySelector("#check-updates");
@@ -27,41 +26,40 @@ function showStatus(message) {
   }, 3000);
 }
 
-function renderSettings(settings) {
-  timeoutInput.value = settings.timeoutSeconds;
-  warningInput.value = settings.warningSeconds;
-  patternsInput.value = settings.patterns.join("\n");
+function createSiteRow(site = { pattern: "", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS, warningSeconds: DEFAULT_WARNING_SECONDS, soundEnabled: true }) {
+  const row = document.createElement("div");
+  row.className = "site-row";
+  row.innerHTML = `<input class="site-pattern" type="text" placeholder="rgpvdiploma.in" aria-label="Website domain or URL"><input class="site-timeout" type="number" min="15" max="86400" value="${site.timeoutSeconds}" aria-label="Inactivity timeout in seconds"><input class="site-warning" type="number" min="1" value="${site.warningSeconds}" aria-label="Warning lead time in seconds"><label class="sound-option"><input class="site-sound" type="checkbox" ${site.soundEnabled !== false ? "checked" : ""}> Sound</label><button type="button" class="remove-site text-button" aria-label="Remove website">Remove</button>`;
+  row.querySelector(".site-pattern").value = site.pattern;
+  row.querySelector(".remove-site").addEventListener("click", () => { row.remove(); emptySites.hidden = siteList.children.length > 0; });
+  siteList.append(row);
 }
 
 async function loadSettings() {
-  const settings = await chrome.storage.local.get(DEFAULT_SETTINGS);
-  renderSettings({
-    timeoutSeconds: Math.max(15, Math.min(86400, Number(settings.timeoutSeconds) || DEFAULT_SETTINGS.timeoutSeconds)),
-    warningSeconds: Math.max(1, Math.min((Number(settings.timeoutSeconds) || DEFAULT_SETTINGS.timeoutSeconds) - 1, Number(settings.warningSeconds) || DEFAULT_SETTINGS.warningSeconds)),
-    patterns: Array.isArray(settings.patterns) ? settings.patterns : DEFAULT_SETTINGS.patterns
-  });
+  const settings = await chrome.storage.local.get({ sites: [], patterns: [] });
+  const sites = Array.isArray(settings.sites) && settings.sites.length ? settings.sites : settings.patterns.map((pattern) => ({ pattern }));
+  sites.forEach(createSiteRow);
+  emptySites.hidden = sites.length > 0;
 }
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const timeoutSeconds = Math.max(15, Math.min(86400, Math.round(Number(timeoutInput.value))));
-  const warningSeconds = Math.max(1, Math.min(timeoutSeconds - 1, Math.round(Number(warningInput.value))));
-  const patterns = patternsInput.value
-    .split("\n")
-    .map((pattern) => pattern.trim())
-    .filter(Boolean)
-    .slice(0, 100);
-
-  await chrome.storage.local.set({ timeoutSeconds, warningSeconds, patterns });
-  renderSettings({ timeoutSeconds, warningSeconds, patterns });
+  const sites = [...siteList.querySelectorAll(".site-row")].map((row) => {
+    const timeoutSeconds = Math.max(15, Math.min(86400, Math.round(Number(row.querySelector(".site-timeout").value) || DEFAULT_TIMEOUT_SECONDS)));
+    return { pattern: row.querySelector(".site-pattern").value.trim(), timeoutSeconds, warningSeconds: Math.max(1, Math.min(timeoutSeconds - 1, Math.round(Number(row.querySelector(".site-warning").value) || DEFAULT_WARNING_SECONDS))), soundEnabled: row.querySelector(".site-sound").checked };
+  }).filter((site) => site.pattern).slice(0, 100);
+  await chrome.storage.local.set({ sites });
   showStatus("Settings saved");
 });
 
 resetButton.addEventListener("click", async () => {
   await chrome.storage.local.set(DEFAULT_SETTINGS);
-  renderSettings(DEFAULT_SETTINGS);
+  siteList.replaceChildren();
+  emptySites.hidden = false;
   showStatus("Settings reset");
 });
+
+addSiteButton.addEventListener("click", () => { createSiteRow(); emptySites.hidden = true; });
 
 async function checkForUpdates() {
   updateStatus.textContent = "Checking...";
