@@ -20,7 +20,14 @@
         <input id="timeout" name="timeout" type="number" min="15" max="86400" step="1" required>
         <span>seconds</span>
       </div>
-      <p class="field-help">Set how long this tab may be inactive. The warning appears only during the final 10 seconds.</p>
+      <p class="field-help">Set how long this tab may be inactive. The warning appears during the final warning period.</p>
+
+      <label class="field-label" for="warning">Warning before closing</label>
+      <div class="timeout-row">
+        <input id="warning" name="warning" type="number" min="1" max="899" step="1" required>
+        <span>seconds before timeout</span>
+      </div>
+      <p class="field-help">Choose when the warning popup should appear. It must be shorter than the inactivity timeout.</p>
 
       <label class="field-label" for="patterns">Websites to close</label>
       <textarea id="patterns" name="patterns" rows="7" placeholder="https://www.example.com/*&#10;https://social.example/*"></textarea>

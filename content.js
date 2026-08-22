@@ -5,11 +5,11 @@ panel.hidden = true;
 document.documentElement.append(panel);
 
 let timeoutSeconds = 900;
+let warningSeconds = 10;
 let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let isActiveTab = false;
 let activityTimer;
-const WARNING_SECONDS = 10;
 
 function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -18,7 +18,7 @@ function formatTime(seconds) {
 }
 
 function render() {
-  if (idleState === "active" && remainingSeconds > WARNING_SECONDS) {
+  if (idleState === "active" && remainingSeconds > warningSeconds) {
     panel.hidden = true;
     return;
   }
@@ -30,6 +30,7 @@ function render() {
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
   timeoutSeconds = message.timeoutSeconds;
+  warningSeconds = message.warningSeconds;
   idleState = message.idleState;
   remainingSeconds = message.remainingSeconds;
   isActiveTab = message.isActiveTab;
@@ -52,7 +53,7 @@ reportActivity();
 setInterval(() => {
   if (remainingSeconds > 0) {
     remainingSeconds -= 1;
-    if (remainingSeconds <= WARNING_SECONDS) idleState = "warning";
+    if (remainingSeconds <= warningSeconds) idleState = "warning";
     render();
   }
 }, 1000);

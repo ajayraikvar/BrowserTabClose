@@ -1,5 +1,6 @@
 const DEFAULT_SETTINGS = {
   timeoutSeconds: 900,
+  warningSeconds: 10,
   patterns: []
 };
 
@@ -7,14 +8,21 @@ const CHECK_ALARM = "edgeclose-check";
 const WARNING_ALARM_PREFIX = "edgeclose-warning-";
 const CLOSE_ALARM_PREFIX = "edgeclose-close-";
 const STATUS_MESSAGE = "edgeclose-status";
-const WARNING_SECONDS = 10;
 
 async function getSettings() {
   const stored = await chrome.storage.local.get(DEFAULT_SETTINGS);
   return {
     timeoutSeconds: normalizeTimeout(stored.timeoutSeconds),
+    warningSeconds: normalizeWarning(stored.warningSeconds, stored.timeoutSeconds),
     patterns: normalizePatterns(stored.patterns)
   };
+}
+
+function normalizeWarning(value, timeoutValue) {
+  const timeout = normalizeTimeout(timeoutValue);
+  const warning = Number(value);
+  if (!Number.isFinite(warning)) return Math.min(DEFAULT_SETTINGS.warningSeconds, timeout - 1);
+  return Math.max(1, Math.min(timeout - 1, Math.round(warning)));
 }
 
 function normalizeTimeout(value) {
@@ -96,16 +104,16 @@ async function markTabActive(tabId) {
   const stored = await chrome.storage.session.get({ lastActivity: {} });
   const lastActivity = { ...stored.lastActivity, [tabId]: timestamp };
   await chrome.storage.session.set({ lastActivity });
-  const { timeoutSeconds } = await getSettings();
-  await scheduleTabAlarms(tabId, timestamp, timeoutSeconds);
+  const { timeoutSeconds, warningSeconds } = await getSettings();
+  await scheduleTabAlarms(tabId, timestamp, timeoutSeconds, warningSeconds);
   broadcastStatus();
 }
 
-async function scheduleTabAlarms(tabId, lastActivity, timeoutSeconds) {
+async function scheduleTabAlarms(tabId, lastActivity, timeoutSeconds, warningSeconds) {
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
   const elapsedSeconds = (Date.now() - lastActivity) / 1000;
-  const warningDelay = timeoutSeconds - WARNING_SECONDS - elapsedSeconds;
+  const warningDelay = timeoutSeconds - warningSeconds - elapsedSeconds;
   const closeDelay = timeoutSeconds - elapsedSeconds;
   if (warningDelay > 0) {
     chrome.alarms.create(warningAlarmName(tabId), { delayInMinutes: warningDelay / 60 });
@@ -116,7 +124,7 @@ async function scheduleTabAlarms(tabId, lastActivity, timeoutSeconds) {
 }
 
 async function broadcastStatus() {
-  const { timeoutSeconds } = await getSettings();
+  const { timeoutSeconds, warningSeconds } = await getSettings();
   const tabs = await chrome.tabs.query({});
   const activeTabs = await chrome.tabs.query({ active: true });
   const activeTabIds = new Set(activeTabs.map((tab) => tab.id));
@@ -127,12 +135,13 @@ async function broadcastStatus() {
     }
     const lastActivity = await getLastActivity(tab.id);
     const alarm = await chrome.alarms.get(closeAlarmName(tab.id));
-    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, timeoutSeconds);
+    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, timeoutSeconds, warningSeconds);
     const elapsedSeconds = Math.floor((Date.now() - lastActivity) / 1000);
-    const isWarning = elapsedSeconds >= timeoutSeconds - WARNING_SECONDS;
+    const isWarning = elapsedSeconds >= timeoutSeconds - warningSeconds;
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
       timeoutSeconds,
+      warningSeconds,
       idleState: isWarning ? "warning" : "active",
       remainingSeconds: Math.max(0, timeoutSeconds - elapsedSeconds),
       isActiveTab: activeTabIds.has(tab.id),
@@ -207,7 +216,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local" && (changes.timeoutSeconds || changes.patterns)) {
+  if (areaName === "local" && (changes.timeoutSeconds || changes.warningSeconds || changes.patterns)) {
     configureIdleDetection();
     rescheduleTabAlarms();
     broadcastStatus();
@@ -215,11 +224,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function rescheduleTabAlarms() {
-  const { timeoutSeconds } = await getSettings();
+  const { timeoutSeconds, warningSeconds } = await getSettings();
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.map(async (tab) => {
     if (!Number.isInteger(tab.id) || !tab.url || !(await isMatchingTab(tab))) return;
-    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), timeoutSeconds);
+    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), timeoutSeconds, warningSeconds);
   }));
 }
 
