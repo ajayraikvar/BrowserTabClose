@@ -36,6 +36,17 @@
     <section class="update-panel" aria-labelledby="updates-title">
       <h2 id="updates-title">Updates</h2>
       <p class="field-help">EdgeClose checks the project repository automatically for a newer published release.</p>
+      <dl class="version-summary">
+        <div>
+          <dt>Installed</dt>
+          <dd id="installed-version"></dd>
+        </div>
+        <div>
+          <dt>Available</dt>
+          <dd id="available-version">Checking...</dd>
+        </div>
+      </dl>
+      <ul id="available-versions" class="version-list" aria-label="Available releases"></ul>
       <button type="button" id="check-updates" class="text-button">Check now</button>
       <span id="update-status" class="status" role="status" aria-live="polite"></span>
     </section>

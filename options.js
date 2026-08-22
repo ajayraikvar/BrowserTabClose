@@ -10,8 +10,13 @@ const resetButton = document.querySelector("#reset");
 const status = document.querySelector("#status");
 const checkUpdatesButton = document.querySelector("#check-updates");
 const updateStatus = document.querySelector("#update-status");
+const installedVersion = document.querySelector("#installed-version");
+const availableVersion = document.querySelector("#available-version");
+const availableVersions = document.querySelector("#available-versions");
 const currentVersion = chrome.runtime.getManifest().version;
 const repositoryUrl = "https://github.com/ajayraikvar/BrowserTabClose";
+
+installedVersion.textContent = `v${currentVersion}`;
 
 function showStatus(message) {
   status.textContent = message;
@@ -56,19 +61,51 @@ resetButton.addEventListener("click", async () => {
 
 async function checkForUpdates() {
   updateStatus.textContent = "Checking...";
+  availableVersion.textContent = "Checking...";
+  availableVersions.replaceChildren();
   try {
-    const response = await fetch("https://api.github.com/repos/ajayraikvar/BrowserTabClose/releases/latest", {
+    const response = await fetch("https://api.github.com/repos/ajayraikvar/BrowserTabClose/releases?per_page=10", {
       headers: { Accept: "application/vnd.github+json" }
     });
-    if (!response.ok) throw new Error("No release found");
-    const release = await response.json();
-    if (release.tag_name && release.tag_name.replace(/^v/, "") !== currentVersion) {
-      updateStatus.innerHTML = `<a href="${release.html_url || repositoryUrl}" target="_blank" rel="noreferrer">Update ${release.tag_name}</a> is available.`;
+    if (!response.ok) throw new Error("Could not load releases");
+    const releases = await response.json();
+    const publishedReleases = releases.filter((release) => release.tag_name);
+    if (publishedReleases.length === 0) {
+      availableVersion.textContent = "No published releases";
+      updateStatus.textContent = "You have the latest release.";
+      return;
+    }
+
+    availableVersion.textContent = `v${publishedReleases[0].tag_name.replace(/^v/, "")}`;
+    publishedReleases.forEach((release) => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = release.html_url || repositoryUrl;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = release.tag_name;
+      item.append(link);
+      if (release.tag_name.replace(/^v/, "") === currentVersion) {
+        const label = document.createElement("span");
+        label.textContent = " Installed";
+        item.append(label);
+      }
+      availableVersions.append(item);
+    });
+
+    if (publishedReleases[0].tag_name.replace(/^v/, "") !== currentVersion) {
+      updateStatus.textContent = "A newer release is available.";
     } else {
       updateStatus.textContent = "You have the latest release.";
     }
   } catch {
-    updateStatus.innerHTML = `<a href="${repositoryUrl}" target="_blank" rel="noreferrer">Open the GitHub repository</a> to check for updates.`;
+    availableVersion.textContent = "Unavailable";
+    const link = document.createElement("a");
+    link.href = repositoryUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "Open the GitHub repository";
+    updateStatus.replaceChildren(link, document.createTextNode(" to check for updates."));
   }
 }
 

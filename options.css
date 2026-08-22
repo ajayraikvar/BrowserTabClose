@@ -177,6 +177,43 @@ button {
   margin-bottom: 8px;
 }
 
+.version-summary {
+  display: flex;
+  gap: 34px;
+  margin: 18px 0 12px;
+}
+
+.version-summary div {
+  display: grid;
+  gap: 4px;
+}
+
+.version-summary dt {
+  color: var(--muted);
+  font: 700 0.7rem "Trebuchet MS", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.version-summary dd {
+  margin: 0;
+  font: 1rem "Trebuchet MS", sans-serif;
+}
+
+.version-list {
+  display: grid;
+  gap: 6px;
+  max-height: 150px;
+  margin: 0 0 12px;
+  padding-left: 18px;
+  overflow-y: auto;
+  font: 0.85rem "Trebuchet MS", sans-serif;
+}
+
+.version-list a {
+  margin-right: 6px;
+}
+
 .update-panel a {
   color: var(--accent-dark);
 }
