@@ -44,3 +44,13 @@ EXTENSION_ID;UPDATE_MANIFEST_URL
 Use the extension ID from `edge://extensions`. The update manifest URL must point to the signed package's supported update manifest. Do not use the GitHub repository URL as an update manifest. This policy requires administrator access and should be deployed through Group Policy or Microsoft Intune.
 
 The current GitHub folder is an unpacked development build. It can be loaded for testing, but administrator-only uninstall and automatic updates require a packaged deployment through Edge Add-ons or an enterprise-managed update server.
+
+### Admin installer
+
+Use `install-edgeclose-admin.bat` only after EdgeClose has been published as a signed Edge Add-ons extension:
+
+1. Open `edge://extensions`, copy the EdgeClose Extension ID, and put it in the batch file as `EXTENSION_ID`.
+2. Right-click `install-edgeclose-admin.bat` and select **Run as administrator**.
+3. Restart Edge, or open `edge://policy` and choose **Reload policies**.
+
+The batch file targets only the configured EdgeClose Extension ID. It does not grant administrator rights to the extension and cannot make an unpacked GitHub folder force-installable. A user who is themselves a Windows administrator can still remove or change local policies; this protects standard users on an administrator-managed device.
