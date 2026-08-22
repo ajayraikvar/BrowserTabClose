@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "EdgeClose",
+  "version": "1.0.0",
+  "description": "Close selected website tabs after you have been inactive for a chosen time.",
+  "permissions": ["idle", "tabs", "storage", "alarms"],
+  "host_permissions": ["<all_urls>", "https://api.github.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "EdgeClose settings"
+  }
+}

@@ -1,0 +1,31 @@
+.edgeclose-panel {
+  position: fixed;
+  z-index: 2147483647;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 5px;
+  width: min(290px, calc(100vw - 36px));
+  padding: 14px 16px;
+  border: 1px solid #d95d39;
+  border-radius: 6px;
+  color: #172329;
+  background: #fffdf8;
+  box-shadow: 0 8px 28px rgb(23 35 41 / 22%);
+  font: 13px/1.35 "Trebuchet MS", sans-serif;
+}
+
+.edgeclose-panel[hidden] {
+  display: none;
+}
+
+.edgeclose-panel strong {
+  color: #a8432b;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.edgeclose-panel b {
+  font-size: 14px;
+}

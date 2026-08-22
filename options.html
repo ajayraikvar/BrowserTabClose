@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EdgeClose settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <p class="eyebrow">EdgeClose</p>
+      <h1>Close tabs when you step away.</h1>
+      <p class="intro">Choose the sites Edge should close after you have been inactive.</p>
+    </header>
+
+    <form id="settings-form" class="settings-panel">
+      <label class="field-label" for="timeout">Inactivity timeout</label>
+      <div class="timeout-row">
+        <input id="timeout" name="timeout" type="number" min="15" max="86400" step="1" required>
+        <span>seconds</span>
+      </div>
+      <p class="field-help">Minimum 15 seconds. The timer follows your computer's idle state.</p>
+
+      <label class="field-label" for="patterns">Websites to close</label>
+      <textarea id="patterns" name="patterns" rows="7" placeholder="https://www.example.com/*&#10;https://social.example/*"></textarea>
+      <p class="field-help">One URL pattern per line. Use <code>*</code> to match any characters.</p>
+
+      <div class="actions">
+        <button type="submit" class="primary-button">Save settings</button>
+        <button type="button" id="reset" class="text-button">Reset</button>
+        <span id="status" class="status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+
+    <section class="update-panel" aria-labelledby="updates-title">
+      <h2 id="updates-title">Updates</h2>
+      <p class="field-help">Check the project repository for a newer published release.</p>
+      <button type="button" id="check-updates" class="text-button">Check for updates</button>
+      <span id="update-status" class="status" role="status" aria-live="polite"></span>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
