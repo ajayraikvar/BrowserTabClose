@@ -8,6 +8,7 @@ let timeoutSeconds = 900;
 let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let isActiveTab = false;
+let activityTimer;
 
 function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -34,6 +35,19 @@ chrome.runtime.onMessage.addListener((message) => {
   isActiveTab = message.isActiveTab;
   render();
 });
+
+function reportActivity() {
+  chrome.runtime.sendMessage({ type: "edgeclose-activity" }).catch(() => {});
+}
+
+["pointerdown", "keydown", "wheel", "touchstart"].forEach((eventName) => {
+  window.addEventListener(eventName, () => {
+    window.clearTimeout(activityTimer);
+    activityTimer = window.setTimeout(reportActivity, 150);
+  }, { capture: true, passive: true });
+});
+
+reportActivity();
 
 setInterval(() => {
   if (idleState !== "active" && remainingSeconds > 0) {

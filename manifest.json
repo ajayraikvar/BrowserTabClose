@@ -3,7 +3,7 @@
   "name": "EdgeClose",
   "version": "1.0.0",
   "description": "Close selected website tabs after you have been inactive for a chosen time.",
-  "permissions": ["idle", "tabs", "storage", "alarms"],
+  "permissions": ["tabs", "storage", "alarms"],
   "host_permissions": ["<all_urls>", "https://api.github.com/*"],
   "content_scripts": [
     {

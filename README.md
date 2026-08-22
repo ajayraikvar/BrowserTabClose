@@ -17,6 +17,6 @@ https://www.example.com/*
 https://social.example/*
 ```
 
-The timeout is measured using the operating system idle state. EdgeClose displays a warning during the final 10 seconds, then closes matching tabs if you remain inactive. Returning to active use cancels the pending close. Matching tabs opened while the computer remains idle are also handled. An empty pattern list leaves tabs untouched.
+The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. EdgeClose displays a warning during the final 10 seconds, then closes the tab if you remain inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
 The settings page automatically checks GitHub releases when opened and every six hours. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.

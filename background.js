@@ -4,7 +4,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const CHECK_ALARM = "edgeclose-check";
-const CLOSE_ALARM = "edgeclose-close";
+const CLOSE_ALARM_PREFIX = "edgeclose-close-";
 const STATUS_MESSAGE = "edgeclose-status";
 const WARNING_SECONDS = 10;
 
@@ -48,10 +48,27 @@ async function isMatchingTab(tab) {
   return patterns.some((pattern) => patternMatchesUrl(pattern, tab.url));
 }
 
+function closeAlarmName(tabId) {
+  return `${CLOSE_ALARM_PREFIX}${tabId}`;
+}
+
+async function getLastActivity(tabId) {
+  const stored = await chrome.storage.session.get({ lastActivity: {} });
+  return Number(stored.lastActivity[tabId]) || Date.now();
+}
+
+async function markTabActive(tabId) {
+  const stored = await chrome.storage.session.get({ lastActivity: {} });
+  const lastActivity = { ...stored.lastActivity, [tabId]: Date.now() };
+  await chrome.storage.session.set({ lastActivity });
+  await chrome.alarms.clear(closeAlarmName(tabId));
+  const { timeoutSeconds } = await getSettings();
+  chrome.alarms.create(closeAlarmName(tabId), { delayInMinutes: timeoutSeconds / 60 });
+  broadcastStatus();
+}
+
 async function broadcastStatus() {
   const { timeoutSeconds } = await getSettings();
-  const warningThreshold = Math.max(1, timeoutSeconds - WARNING_SECONDS);
-  const idleState = await chrome.idle.queryState(warningThreshold);
   const tabs = await chrome.tabs.query({});
   const activeTabs = await chrome.tabs.query({ active: true });
   const activeTabIds = new Set(activeTabs.map((tab) => tab.id));
@@ -60,38 +77,32 @@ async function broadcastStatus() {
     if (!Number.isInteger(tab.id) || !tab.url || !(await isMatchingTab(tab))) {
       return;
     }
+    const elapsedSeconds = Math.floor((Date.now() - await getLastActivity(tab.id)) / 1000);
+    const isWarning = elapsedSeconds >= timeoutSeconds - WARNING_SECONDS;
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
       timeoutSeconds,
-      idleState,
-      remainingSeconds: idleState === "active" ? timeoutSeconds : WARNING_SECONDS,
-      isActiveTab: activeTabIds.has(tab.id)
+      idleState: isWarning ? "warning" : "active",
+      remainingSeconds: Math.max(0, timeoutSeconds - elapsedSeconds),
+      isActiveTab: activeTabIds.has(tab.id),
+      hasTabActivity: elapsedSeconds < timeoutSeconds
     }).catch(() => {});
   }));
 }
 
-async function closeMatchingTabs() {
+async function closeTabIfStillInactive(tabId) {
   const { patterns } = await getSettings();
-  if (patterns.length === 0) {
-    return;
-  }
-
-  const tabs = await chrome.tabs.query({});
-  const matchingTabIds = tabs
-    .filter((tab) => patterns.some((pattern) => patternMatchesUrl(pattern, tab.url)))
-    .map((tab) => tab.id)
-    .filter((tabId) => Number.isInteger(tabId));
-
-  if (matchingTabIds.length > 0) {
-    await chrome.tabs.remove(matchingTabIds);
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || !patterns.some((pattern) => patternMatchesUrl(pattern, tab.url))) return;
+  const lastActivity = await getLastActivity(tabId);
+  const { timeoutSeconds } = await getSettings();
+  if (Date.now() - lastActivity >= timeoutSeconds * 1000) {
+    await chrome.tabs.remove(tabId);
   }
 }
 
 async function configureIdleDetection() {
-  const { timeoutSeconds } = await getSettings();
-  chrome.idle.setDetectionInterval(Math.max(1, timeoutSeconds - WARNING_SECONDS));
   await chrome.alarms.clear(CHECK_ALARM);
-  await chrome.alarms.clear(CLOSE_ALARM);
   chrome.alarms.create(CHECK_ALARM, { periodInMinutes: 0.5 });
 }
 
@@ -112,7 +123,23 @@ chrome.tabs.onActivated.addListener(() => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "complete") broadcastStatus();
+  if (changeInfo.status === "complete") {
+    markTabActive(tabId);
+    broadcastStatus();
+  }
+});
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const stored = await chrome.storage.session.get({ lastActivity: {} });
+  delete stored.lastActivity[tabId];
+  await chrome.storage.session.set({ lastActivity: stored.lastActivity });
+  await chrome.alarms.clear(closeAlarmName(tabId));
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === "edgeclose-activity" && Number.isInteger(sender.tab?.id)) {
+    markTabActive(sender.tab.id);
+  }
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -122,30 +149,15 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-chrome.idle.onStateChanged.addListener((newState) => {
-  broadcastStatus();
-  if (newState === "idle" || newState === "locked") {
-    chrome.alarms.create(CLOSE_ALARM, { delayInMinutes: WARNING_SECONDS / 60 });
-  } else {
-    chrome.alarms.clear(CLOSE_ALARM);
-  }
-});
-
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  const { timeoutSeconds } = await getSettings();
-  if (alarm.name === CLOSE_ALARM) {
-    const finalState = await chrome.idle.queryState(1);
-    if (finalState === "idle" || finalState === "locked") await closeMatchingTabs();
+  if (alarm.name.startsWith(CLOSE_ALARM_PREFIX)) {
+    const tabId = Number(alarm.name.slice(CLOSE_ALARM_PREFIX.length));
+    if (Number.isInteger(tabId)) await closeTabIfStillInactive(tabId);
     return;
   }
 
   if (alarm.name !== CHECK_ALARM) return;
-
-  const state = await chrome.idle.queryState(Math.max(1, timeoutSeconds - WARNING_SECONDS));
   await broadcastStatus();
-  if (state === "active") {
-    await chrome.alarms.clear(CLOSE_ALARM);
-  }
 });
 
 configureIdleDetection();
