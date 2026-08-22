@@ -10,7 +10,7 @@ const resetButton = document.querySelector("#reset");
 const status = document.querySelector("#status");
 const checkUpdatesButton = document.querySelector("#check-updates");
 const updateStatus = document.querySelector("#update-status");
-const currentVersion = "1.0.0";
+const currentVersion = chrome.runtime.getManifest().version;
 const repositoryUrl = "https://github.com/ajayraikvar/BrowserTabClose";
 
 function showStatus(message) {
@@ -54,7 +54,7 @@ resetButton.addEventListener("click", async () => {
   showStatus("Settings reset");
 });
 
-checkUpdatesButton.addEventListener("click", async () => {
+async function checkForUpdates() {
   updateStatus.textContent = "Checking...";
   try {
     const response = await fetch("https://api.github.com/repos/ajayraikvar/BrowserTabClose/releases/latest", {
@@ -70,6 +70,10 @@ checkUpdatesButton.addEventListener("click", async () => {
   } catch {
     updateStatus.innerHTML = `<a href="${repositoryUrl}" target="_blank" rel="noreferrer">Open the GitHub repository</a> to check for updates.`;
   }
-});
+}
+
+checkUpdatesButton.addEventListener("click", checkForUpdates);
 
 loadSettings();
+checkForUpdates();
+window.setInterval(checkForUpdates, 6 * 60 * 60 * 1000);

@@ -19,4 +19,4 @@ https://social.example/*
 
 The timeout is measured using the operating system idle state. Matching tabs are closed when the idle threshold is reached, including tabs opened while the computer remains idle. An empty pattern list leaves tabs untouched.
 
-The settings page includes a GitHub release check. Edge extensions loaded unpacked cannot silently replace their own files; when a release is available, install the downloaded update by loading the updated folder through `edge://extensions`.
+The settings page automatically checks GitHub releases when opened and every six hours. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.
