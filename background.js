@@ -4,7 +4,9 @@ const DEFAULT_SETTINGS = {
 };
 
 const CHECK_ALARM = "edgeclose-check";
+const CLOSE_ALARM = "edgeclose-close";
 const STATUS_MESSAGE = "edgeclose-status";
+const WARNING_SECONDS = 10;
 
 async function getSettings() {
   const stored = await chrome.storage.local.get(DEFAULT_SETTINGS);
@@ -48,7 +50,8 @@ async function isMatchingTab(tab) {
 
 async function broadcastStatus() {
   const { timeoutSeconds } = await getSettings();
-  const idleState = await chrome.idle.queryState(timeoutSeconds);
+  const warningThreshold = Math.max(1, timeoutSeconds - WARNING_SECONDS);
+  const idleState = await chrome.idle.queryState(warningThreshold);
   const tabs = await chrome.tabs.query({});
   const activeTabs = await chrome.tabs.query({ active: true });
   const activeTabIds = new Set(activeTabs.map((tab) => tab.id));
@@ -61,7 +64,7 @@ async function broadcastStatus() {
       type: STATUS_MESSAGE,
       timeoutSeconds,
       idleState,
-      remainingSeconds: idleState === "active" ? timeoutSeconds : 0,
+      remainingSeconds: idleState === "active" ? timeoutSeconds : WARNING_SECONDS,
       isActiveTab: activeTabIds.has(tab.id)
     }).catch(() => {});
   }));
@@ -86,8 +89,9 @@ async function closeMatchingTabs() {
 
 async function configureIdleDetection() {
   const { timeoutSeconds } = await getSettings();
-  chrome.idle.setDetectionInterval(timeoutSeconds);
+  chrome.idle.setDetectionInterval(Math.max(1, timeoutSeconds - WARNING_SECONDS));
   await chrome.alarms.clear(CHECK_ALARM);
+  await chrome.alarms.clear(CLOSE_ALARM);
   chrome.alarms.create(CHECK_ALARM, { periodInMinutes: 0.5 });
 }
 
@@ -120,19 +124,27 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 chrome.idle.onStateChanged.addListener((newState) => {
   broadcastStatus();
-  if (newState === "idle" || newState === "locked") closeMatchingTabs();
+  if (newState === "idle" || newState === "locked") {
+    chrome.alarms.create(CLOSE_ALARM, { delayInMinutes: WARNING_SECONDS / 60 });
+  } else {
+    chrome.alarms.clear(CLOSE_ALARM);
+  }
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== CHECK_ALARM) {
+  const { timeoutSeconds } = await getSettings();
+  if (alarm.name === CLOSE_ALARM) {
+    const finalState = await chrome.idle.queryState(1);
+    if (finalState === "idle" || finalState === "locked") await closeMatchingTabs();
     return;
   }
 
-  const { timeoutSeconds } = await getSettings();
-  const state = await chrome.idle.queryState(timeoutSeconds);
+  if (alarm.name !== CHECK_ALARM) return;
+
+  const state = await chrome.idle.queryState(Math.max(1, timeoutSeconds - WARNING_SECONDS));
   await broadcastStatus();
-  if (state === "idle" || state === "locked") {
-    await closeMatchingTabs();
+  if (state === "active") {
+    await chrome.alarms.clear(CLOSE_ALARM);
   }
 });
 

@@ -23,7 +23,7 @@ function render() {
     return;
   }
 
-  panel.innerHTML = `<strong>EdgeClose</strong><span>You are inactive. This tab will close soon.</span><b>Closing in ${formatTime(remainingSeconds)}</b>`;
+  panel.innerHTML = `<strong>EdgeClose warning</strong><span>You have been inactive. This tab will close soon.</span><b>Closing in ${formatTime(remainingSeconds)}</b>`;
 }
 
 chrome.runtime.onMessage.addListener((message) => {
