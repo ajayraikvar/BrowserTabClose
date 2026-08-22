@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
 
 const form = document.querySelector("#settings-form");
 const timeoutInput = document.querySelector("#timeout");
+const warningInput = document.querySelector("#warning");
 const patternsInput = document.querySelector("#patterns");
 const resetButton = document.querySelector("#reset");
 const status = document.querySelector("#status");
@@ -28,6 +29,7 @@ function showStatus(message) {
 
 function renderSettings(settings) {
   timeoutInput.value = settings.timeoutSeconds;
+  warningInput.value = settings.warningSeconds;
   patternsInput.value = settings.patterns.join("\n");
 }
 
@@ -35,6 +37,7 @@ async function loadSettings() {
   const settings = await chrome.storage.local.get(DEFAULT_SETTINGS);
   renderSettings({
     timeoutSeconds: Math.max(15, Math.min(86400, Number(settings.timeoutSeconds) || DEFAULT_SETTINGS.timeoutSeconds)),
+    warningSeconds: Math.max(1, Math.min((Number(settings.timeoutSeconds) || DEFAULT_SETTINGS.timeoutSeconds) - 1, Number(settings.warningSeconds) || DEFAULT_SETTINGS.warningSeconds)),
     patterns: Array.isArray(settings.patterns) ? settings.patterns : DEFAULT_SETTINGS.patterns
   });
 }
@@ -42,14 +45,15 @@ async function loadSettings() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const timeoutSeconds = Math.max(15, Math.min(86400, Math.round(Number(timeoutInput.value))));
+  const warningSeconds = Math.max(1, Math.min(timeoutSeconds - 1, Math.round(Number(warningInput.value))));
   const patterns = patternsInput.value
     .split("\n")
     .map((pattern) => pattern.trim())
     .filter(Boolean)
     .slice(0, 100);
 
-  await chrome.storage.local.set({ timeoutSeconds, patterns });
-  renderSettings({ timeoutSeconds, patterns });
+  await chrome.storage.local.set({ timeoutSeconds, warningSeconds, patterns });
+  renderSettings({ timeoutSeconds, warningSeconds, patterns });
   showStatus("Settings saved");
 });
 
