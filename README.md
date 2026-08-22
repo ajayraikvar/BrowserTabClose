@@ -54,3 +54,7 @@ Use `install-edgeclose-admin.bat` only after EdgeClose has been published as a s
 3. Restart Edge, or open `edge://policy` and choose **Reload policies**.
 
 The batch file targets only the configured EdgeClose Extension ID. It does not grant administrator rights to the extension and cannot make an unpacked GitHub folder force-installable. A user who is themselves a Windows administrator can still remove or change local policies; this protects standard users on an administrator-managed device.
+
+### One-click GitHub installer
+
+Run `install-edgeclose.bat` to request administrator rights, download the latest `main` branch from GitHub, install the files under `%ProgramData%\EdgeClose`, validate `manifest.json`, and open `edge://extensions`. Edge still requires one manual **Load unpacked** selection of `%ProgramData%\EdgeClose`; this final click cannot be automated by a batch file because Edge blocks silent unpacked-extension installation. This installer does not grant the extension extra browser permissions and does not prevent uninstall by itself.
