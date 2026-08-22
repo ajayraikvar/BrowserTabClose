@@ -18,13 +18,12 @@ function formatTime(seconds) {
 }
 
 function render() {
-  panel.hidden = false;
   if (idleState === "active" && remainingSeconds > WARNING_SECONDS) {
-    const activityMessage = isActiveTab ? "You are active on this tab." : "You are active in another tab.";
-    panel.innerHTML = `<strong>EdgeClose</strong><span>${activityMessage}</span><b>${formatTime(remainingSeconds)} available when inactive</b>`;
+    panel.hidden = true;
     return;
   }
 
+  panel.hidden = false;
   panel.innerHTML = `<strong>EdgeClose warning</strong><span>You have been inactive. This tab will close soon.</span><b>Closing in ${formatTime(remainingSeconds)}</b>`;
 }
 
