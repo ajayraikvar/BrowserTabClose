@@ -1,0 +1,16 @@
+{
+  "sites": [
+    {
+      "pattern": "rgpvdiploma.in",
+      "timeoutSeconds": 60,
+      "warningSeconds": 15,
+      "soundEnabled": true
+    },
+    {
+      "pattern": "nad.digilocker.gov.in",
+      "timeoutSeconds": 120,
+      "warningSeconds": 20,
+      "soundEnabled": false
+    }
+  ]
+}
