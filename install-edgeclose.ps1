@@ -34,12 +34,20 @@ try {
     New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
     Copy-Item -Path (Join-Path $sourceRoot.FullName '*') -Destination $installRoot -Recurse -Force
 
-    Write-Host "EdgeClose $($manifest.version) is ready at $installRoot"
+    Write-Host "EdgeClose $($manifest.version) files downloaded to: $installRoot"
     Write-Host ''
     Write-Host 'In Edge: enable Developer mode, choose Load unpacked, and select:'
     Write-Host $installRoot
     Write-Host ''
-    Write-Host 'This final browser confirmation is required for an unpacked extension.'
+    Write-Host 'Important: this is not a silent browser installation.'
+    Write-Host 'Edge requires the manual Load unpacked action for this development build.'
+    try {
+        Set-Clipboard -Value $installRoot
+        Write-Host 'The install folder path has been copied to the clipboard.'
+    }
+    catch {
+        Write-Host 'Clipboard copy was unavailable; use the path printed above.'
+    }
     Start-Process 'msedge.exe' -ArgumentList 'edge://extensions'
     Write-Host 'Installation files are ready. Complete the single Load unpacked step in Edge.'
 }

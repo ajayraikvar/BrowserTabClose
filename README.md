@@ -57,7 +57,7 @@ The batch file targets only the configured EdgeClose Extension ID. It does not g
 
 ### One-click GitHub installer
 
-Run `install-edgeclose.bat` to request administrator rights, download the latest `main` branch from GitHub, install the files under `%ProgramData%\EdgeClose`, validate `manifest.json`, and open `edge://extensions`. Edge still requires one manual **Load unpacked** selection of `%ProgramData%\EdgeClose`; this final click cannot be automated by a batch file because Edge blocks silent unpacked-extension installation. This installer does not grant the extension extra browser permissions and does not prevent uninstall by itself.
+Run `install-edgeclose.bat` to request administrator rights, download the latest `main` branch from GitHub, prepare the files under `%ProgramData%\EdgeClose`, validate `manifest.json`, copy the folder path, and open `edge://extensions`. It does not silently install the extension: Edge requires one manual **Load unpacked** selection of `%ProgramData%\EdgeClose` for a GitHub development build. This installer does not grant the extension extra browser permissions and does not prevent uninstall by itself.
 
 You can also run it directly from an already elevated PowerShell window:
 
