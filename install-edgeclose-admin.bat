@@ -17,6 +17,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "%ProgramData%\EdgeClose" mkdir "%ProgramData%\EdgeClose"
+reg query "HKLM\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist" /v 1 > "%ProgramData%\EdgeClose\policy-value-backup.txt" 2>nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist" /v 1 /t REG_SZ /d "%EXTENSION_ID%;%EDGE_UPDATE_URL%" /f
 if errorlevel 1 (
   echo ERROR: Could not create the Edge policy.

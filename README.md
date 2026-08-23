@@ -76,4 +76,4 @@ Packing does not bypass Edge's installation security. Automatic installation and
 
 ### Uninstall and restore
 
-Run `uninstall-edgeclose.bat` as administrator. It removes EdgeClose's matching enterprise policy entries, deletes `%ProgramData%\EdgeClose`, cleans temporary EdgeClose installer folders, and opens `edge://extensions`. If the extension was loaded unpacked, select **Remove** once in Edge; Edge does not provide a command-line API to silently remove an unpacked extension registration.
+Run `uninstall-edgeclose.bat` as administrator. It restores the previous value of the Edge policy entry when the admin installer created a backup, otherwise removes only the configured EdgeClose policy value. It then deletes `%ProgramData%\EdgeClose`, cleans temporary EdgeClose installer folders, and opens `edge://extensions`. If the extension was loaded unpacked, select **Remove** once in Edge; Edge does not provide a command-line API to silently remove an unpacked extension registration. Other Edge policies are left unchanged.
