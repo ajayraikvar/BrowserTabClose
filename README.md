@@ -12,7 +12,7 @@ EdgeClose requests `tabs` because it must inspect open tab URLs and close only t
 
 1. Open `edge://extensions` in Microsoft Edge.
 2. Enable **Developer mode**.
-3. Select **Load unpacked** and choose this folder.
+3. Select **Load unpacked** and choose this folder, or upload `EdgeClose-1.1.6.zip` to Microsoft Edge Add-ons.
 4. Select the EdgeClose toolbar icon to open settings.
 5. Add one URL pattern per line and save.
 
@@ -37,57 +37,4 @@ https://ajayraikvar.github.io/BrowserTabClose/privacy-policy.html
 
 The repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
 
-The settings page automatically checks GitHub releases when opened and every six hours. It shows the installed version and available published release versions. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.
-
-## Administrator-only uninstall
-
-The extension cannot prevent uninstall through JavaScript or `manifest.json`. An organization administrator must force-install it with Microsoft Edge enterprise policy. A force-installed extension cannot be removed by a normal user; the administrator must remove the policy first.
-
-For a signed Edge Add-ons or self-hosted package, configure the Windows policy `ExtensionInstallForcelist` under:
-
-```text
-HKLM\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist
-```
-
-Create a string value such as `1` with this format:
-
-```text
-EXTENSION_ID;UPDATE_MANIFEST_URL
-```
-
-Use the extension ID from `edge://extensions`. The update manifest URL must point to the signed package's supported update manifest. Do not use the GitHub repository URL as an update manifest. This policy requires administrator access and should be deployed through Group Policy or Microsoft Intune.
-
-The current GitHub folder is an unpacked development build. It can be loaded for testing, but administrator-only uninstall and automatic updates require a packaged deployment through Edge Add-ons or an enterprise-managed update server.
-
-### Admin installer
-
-Use `install-edgeclose-admin.bat` only after EdgeClose has been published as a signed Edge Add-ons extension:
-
-1. Open `edge://extensions`, copy the EdgeClose Extension ID, and put it in the batch file as `EXTENSION_ID`.
-2. Right-click `install-edgeclose-admin.bat` and select **Run as administrator**.
-3. Restart Edge, or open `edge://policy` and choose **Reload policies**.
-
-The batch file targets only the configured EdgeClose Extension ID. It does not grant administrator rights to the extension and cannot make an unpacked GitHub folder force-installable. A user who is themselves a Windows administrator can still remove or change local policies; this protects standard users on an administrator-managed device.
-
-### One-click GitHub installer
-
-Run `install-edgeclose.bat` to request administrator rights, download the latest `main` branch from GitHub, prepare the files under `%ProgramData%\EdgeClose`, validate `manifest.json`, open the folder and `edge://extensions`, and keep the result visible in PowerShell. It does not silently install the extension: Edge requires one manual **Load unpacked** selection of `%ProgramData%\EdgeClose` for a GitHub development build. This installer does not grant the extension extra browser permissions and does not prevent uninstall by itself.
-
-You can also run it directly from an already elevated PowerShell window:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-& .\install-edgeclose.ps1
-```
-
-The command performs the download and installation preparation automatically. Administrator PowerShell does not remove Edge's final confirmation for an unpacked extension. To install without that click, the extension must be signed and deployed using Edge Add-ons or an enterprise force-install policy.
-
-### Pack as CRX
-
-Run `pack-edgeclose.bat` to create a packed `dist\EdgeClose-<version>.crx` package using Microsoft Edge. The first run also creates `dist\edgeclose.pem`, the signing key. Keep this key private and backed up; it is required for future updates to keep the same extension ID. The `.crx` can be installed manually from `edge://extensions` with Developer mode enabled.
-
-Packing does not bypass Edge's installation security. Automatic installation and administrator-only uninstall still require the signed package to be deployed with Edge enterprise policy or published in Edge Add-ons.
-
-### Uninstall and restore
-
-Run `uninstall-edgeclose.bat` as administrator. It automatically finds and removes EdgeClose's Edge Add-ons policy entry; an exact Extension ID can optionally be added in the batch file. It restores the previous value when the admin installer created a backup, then deletes `%ProgramData%\EdgeClose`, cleans temporary EdgeClose installer folders, and opens `edge://extensions`. If the extension was loaded unpacked, select **Remove** once in Edge; Edge does not provide a command-line API to silently remove an unpacked extension registration. Other Edge policies are left unchanged.
+The settings page automatically checks GitHub releases when opened and every six hours. For automatic updates and administrator-managed installation, publish the ZIP through Microsoft Edge Add-ons.
