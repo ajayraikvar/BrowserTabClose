@@ -37,4 +37,4 @@ https://ajayraikvar.github.io/BrowserTabClose/privacy-policy.html
 
 The repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
 
-The settings page automatically checks GitHub releases when opened and every six hours. For automatic updates and administrator-managed installation, publish the ZIP through Microsoft Edge Add-ons.
+The settings page automatically checks GitHub releases when opened and every six hours. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. For automatic updates and administrator-managed installation, publish the ZIP through Microsoft Edge Add-ons.
