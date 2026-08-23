@@ -50,6 +50,10 @@ function playWarningSound() {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
+  if (message.enabled === false) {
+    panel.hidden = true;
+    return;
+  }
   timeoutSeconds = message.timeoutSeconds;
   warningSeconds = message.warningSeconds;
   idleState = message.idleState;

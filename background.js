@@ -85,6 +85,7 @@ async function isMatchingTab(tab) {
 
 async function getSiteForTab(tab) {
   const { sites } = await getSettings();
+  if (sites.length === 0) return null;
   const matchingSite = sites.find((site) => patternMatchesUrl(site.pattern, tab.url));
   if (matchingSite) return matchingSite;
   const stored = await chrome.storage.session.get({ inheritedSites: {} });
@@ -143,9 +144,12 @@ async function broadcastStatus() {
   const activeTabIds = new Set(activeTabs.map((tab) => tab.id));
 
   await Promise.all(tabs.map(async (tab) => {
-    if (!Number.isInteger(tab.id) || !tab.url) return;
-    const site = await getSiteForTab(tab);
-    if (!site) return;
+    if (!Number.isInteger(tab.id)) return;
+    const site = tab.url && await getSiteForTab(tab);
+    if (!site) {
+      chrome.tabs.sendMessage(tab.id, { type: STATUS_MESSAGE, enabled: false }).catch(() => {});
+      return;
+    }
     const lastActivity = await getLastActivity(tab.id);
     const alarm = await chrome.alarms.get(closeAlarmName(tab.id));
     if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, site.timeoutSeconds, site.warningSeconds);
@@ -233,6 +237,8 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && (changes.sites || changes.timeoutSeconds || changes.warningSeconds || changes.patterns)) {
+    chrome.storage.session.set({ inheritedSites: {} });
+    clearManagedAlarms();
     configureIdleDetection();
     rescheduleTabAlarms();
     broadcastStatus();
@@ -247,6 +253,13 @@ async function rescheduleTabAlarms() {
     if (!site) return;
     await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), site.timeoutSeconds, site.warningSeconds);
   }));
+}
+
+async function clearManagedAlarms() {
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(alarms
+    .filter((alarm) => alarm.name.startsWith(WARNING_ALARM_PREFIX) || alarm.name.startsWith(CLOSE_ALARM_PREFIX))
+    .map((alarm) => chrome.alarms.clear(alarm.name)));
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
