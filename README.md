@@ -29,6 +29,14 @@ Each website has its own inactivity timeout, warning lead time, and optional war
 
 The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. The user can choose how many seconds before timeout the warning appears, then the tab closes if the user remains inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
+Privacy policy URL after enabling GitHub Pages:
+
+```text
+https://ajayraikvar.github.io/BrowserTabClose/privacy-policy.html
+```
+
+The repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
+
 The settings page automatically checks GitHub releases when opened and every six hours. It shows the installed version and available published release versions. A GitHub source repository cannot silently replace installed extension code. For genuine automatic installation, publish the extension through Microsoft Edge Add-ons; Edge will then manage signed updates automatically. Locally loaded unpacked builds must be updated by loading the new folder through `edge://extensions`.
 
 ## Administrator-only uninstall
