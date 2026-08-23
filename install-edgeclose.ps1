@@ -48,8 +48,13 @@ try {
     catch {
         Write-Host 'Clipboard copy was unavailable; use the path printed above.'
     }
+    Start-Process explorer.exe -ArgumentList "/select,`"$installRoot`""
     Start-Process 'msedge.exe' -ArgumentList 'edge://extensions'
-    Write-Host 'Installation files are ready. Complete the single Load unpacked step in Edge.'
+    Write-Host ''
+    Write-Host 'FINAL STEP IN EDGE:'
+    Write-Host '1. Enable Developer mode.'
+    Write-Host '2. Select Load unpacked.'
+    Write-Host "3. Select $installRoot"
 }
 catch {
     Write-Error $_.Exception.Message
