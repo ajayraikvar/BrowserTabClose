@@ -2,6 +2,12 @@
 
 EdgeClose is a Manifest V3 Microsoft Edge extension that closes tabs matching user-defined URL patterns after the computer has been idle for a chosen duration.
 
+Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration and temporary tab-activity timestamps locally; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show release versions.
+
+### Permission disclosure for store review
+
+EdgeClose requests `tabs` because it must inspect open tab URLs and close only tabs that match the user's configured patterns. It uses `<all_urls>` because users may configure any website and because matching tabs must receive the warning countdown overlay. It does not read page content or record input details; the content script reports only that a supported user interaction occurred.
+
 ## Install locally
 
 1. Open `edge://extensions` in Microsoft Edge.
