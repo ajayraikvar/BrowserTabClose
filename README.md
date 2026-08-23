@@ -73,3 +73,7 @@ The command performs the download and installation preparation automatically. Ad
 Run `pack-edgeclose.bat` to create a packed `dist\EdgeClose-<version>.crx` package using Microsoft Edge. The first run also creates `dist\edgeclose.pem`, the signing key. Keep this key private and backed up; it is required for future updates to keep the same extension ID. The `.crx` can be installed manually from `edge://extensions` with Developer mode enabled.
 
 Packing does not bypass Edge's installation security. Automatic installation and administrator-only uninstall still require the signed package to be deployed with Edge enterprise policy or published in Edge Add-ons.
+
+### Uninstall and restore
+
+Run `uninstall-edgeclose.bat` as administrator. It removes EdgeClose's matching enterprise policy entries, deletes `%ProgramData%\EdgeClose`, cleans temporary EdgeClose installer folders, and opens `edge://extensions`. If the extension was loaded unpacked, select **Remove** once in Edge; Edge does not provide a command-line API to silently remove an unpacked extension registration.
