@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EdgeClose",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Close selected website tabs after you have been inactive for a chosen time.",
   "permissions": ["tabs", "storage", "alarms"],
   "host_permissions": ["<all_urls>", "https://api.github.com/*"],

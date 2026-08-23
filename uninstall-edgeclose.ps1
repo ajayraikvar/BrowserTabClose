@@ -1,6 +1,5 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ExtensionId
+    [string]$ExtensionId = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,7 +21,8 @@ try {
         foreach ($property in $policy.PSObject.Properties) {
             if ($property.Name -like 'PS*') { continue }
             $value = [string]$property.Value
-            if ($value -like "$ExtensionId;*") {
+            $isEdgeClosePolicy = $value -match '^[a-p]{32};https://edge\.microsoft\.com/extensionwebstorebase'
+            if (($ExtensionId -and $value -like "$ExtensionId;*") -or (-not $ExtensionId -and $isEdgeClosePolicy)) {
                 Remove-ItemProperty -Path $policyPath -Name $property.Name -Force
                 $removedPolicies++
             }
