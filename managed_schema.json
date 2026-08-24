@@ -35,8 +35,7 @@
             "type": "boolean"
           }
         },
-        "required": ["pattern", "timeoutSeconds", "warningSeconds"],
-        "additionalProperties": false
+        "required": ["pattern", "timeoutSeconds", "warningSeconds"]
       }
     }
   }
