@@ -23,7 +23,7 @@ https://www.example.com/*
 https://social.example/*
 ```
 
-You can also enter a domain without a protocol, such as `rgpvdiploma.in`; this matches the domain, its `www` version, and all page paths.
+You can also enter a domain without a protocol, such as `example.com`; this matches the domain, its `www` version, and all page paths. Direct IPv4 addresses, such as `192.168.1.10`, are also supported.
 
 Each website has its own inactivity timeout, warning lead time, optional warning sound, and optional daily `From`/`To` schedule. Leave both schedule fields empty to keep a website active all day. Overnight schedules such as `23:00` to `07:00` are supported. Outside a website's schedule, its inactivity timer and warning are paused; a new session starts when the scheduled window begins. Use **Add website** in the Options page to configure multiple sites independently. Sound is played once when that website enters its warning period. Enable sound for a site and interact with it once after loading so the browser permits warning audio playback.
 
