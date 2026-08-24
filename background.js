@@ -10,9 +10,11 @@ const CLOSE_ALARM_PREFIX = "edgeclose-close-";
 const STATUS_MESSAGE = "edgeclose-status";
 
 async function getSettings() {
+  const managed = await chrome.storage.managed.get({ sites: [] }).catch(() => ({ sites: [] }));
   const stored = await chrome.storage.local.get({ sites: [], patterns: [] });
+  const sites = Array.isArray(managed.sites) && managed.sites.length > 0 ? managed.sites : stored.sites;
   return {
-    sites: normalizeSites(stored.sites, stored.patterns)
+    sites: normalizeSites(sites, sites.length > 0 ? [] : stored.patterns)
   };
 }
 

@@ -13,6 +13,7 @@ const updateStatus = document.querySelector("#update-status");
 const installedVersion = document.querySelector("#installed-version");
 const availableVersion = document.querySelector("#available-version");
 const availableVersions = document.querySelector("#available-versions");
+const managedNotice = document.querySelector("#managed-notice");
 const currentVersion = chrome.runtime.getManifest().version;
 const repositoryUrl = "https://github.com/ajayraikvar/EdgeClose";
 
@@ -47,10 +48,22 @@ function createSiteRow(site = { pattern: "", timeoutSeconds: DEFAULT_TIMEOUT_SEC
 }
 
 async function loadSettings() {
+  const managed = await chrome.storage.managed.get({ sites: [] }).catch(() => ({ sites: [] }));
   const settings = await chrome.storage.local.get({ sites: [], patterns: [] });
+  const managedMode = Array.isArray(managed.sites) && managed.sites.length > 0;
+  const configuredSites = managedMode ? managed.sites : settings.sites;
   const sites = Array.isArray(settings.sites) && settings.sites.length ? settings.sites : settings.patterns.map((pattern) => ({ pattern }));
-  sites.forEach(createSiteRow);
-  emptySites.hidden = sites.length > 0;
+  (managedMode ? configuredSites : sites).forEach((site) => {
+    createSiteRow(site);
+    if (managedMode) siteList.lastElementChild.querySelectorAll("input, button").forEach((control) => { control.disabled = true; });
+  });
+  emptySites.hidden = (managedMode ? configuredSites : sites).length > 0;
+  if (managedMode) {
+    addSiteButton.disabled = true;
+    resetButton.disabled = true;
+    form.querySelector("[type=submit]").disabled = true;
+    managedNotice.hidden = false;
+  }
 }
 
 form.addEventListener("submit", async (event) => {

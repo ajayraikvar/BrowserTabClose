@@ -38,3 +38,24 @@ https://ajayraikvar.github.io/EdgeClose/privacy-policy.html
 The public repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
 
 The settings page automatically checks GitHub releases when opened and every six hours. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. For automatic updates and administrator-managed installation, publish the ZIP through Microsoft Edge Add-ons.
+
+### Administrator-managed settings
+
+On organization-managed Edge devices, administrators can use the `EdgeClose` managed policy with the included `managed_schema.json` schema. Set `sites` through Microsoft Intune, Group Policy, or another Edge policy management tool. For example:
+
+```json
+{
+	"sites": [
+		{
+			"pattern": "example.com",
+			"timeoutSeconds": 900,
+			"warningSeconds": 10,
+			"fromTime": "23:00",
+			"toTime": "07:00",
+			"soundEnabled": false
+		}
+	]
+}
+```
+
+When a managed `sites` policy is present, users can view the rules but cannot add, remove, save, reset, or change them. To prevent users from disabling or uninstalling EdgeClose itself, administrators must also deploy the extension using Edge's `ExtensionSettings` policy with `installation_mode` set to `force_installed`. The extension cannot prevent a user from disabling itself without that browser-level policy.
