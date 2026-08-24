@@ -26,6 +26,17 @@ function showStatus(message) {
   }, 3000);
 }
 
+function compareVersions(left, right) {
+  const leftParts = left.replace(/^v/, "").split(".").map((part) => Number(part) || 0);
+  const rightParts = right.replace(/^v/, "").split(".").map((part) => Number(part) || 0);
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    if ((leftParts[index] || 0) !== (rightParts[index] || 0)) {
+      return (leftParts[index] || 0) - (rightParts[index] || 0);
+    }
+  }
+  return 0;
+}
+
 function createSiteRow(site = { pattern: "", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS, warningSeconds: DEFAULT_WARNING_SECONDS, fromTime: "", toTime: "", soundEnabled: true }) {
   const row = document.createElement("div");
   row.className = "site-row";
@@ -71,15 +82,18 @@ async function checkForUpdates() {
     });
     if (!response.ok) throw new Error("Could not load releases");
     const releases = await response.json();
-    const publishedReleases = releases.filter((release) => release.tag_name);
-    if (publishedReleases.length === 0) {
-      availableVersion.textContent = "No published releases";
+    const newerReleases = releases
+      .filter((release) => release.tag_name && !release.draft && !release.prerelease)
+      .filter((release) => compareVersions(release.tag_name, currentVersion) > 0)
+      .sort((left, right) => compareVersions(right.tag_name, left.tag_name));
+    if (newerReleases.length === 0) {
+      availableVersion.textContent = currentVersion;
       updateStatus.textContent = "You have the latest release.";
       return;
     }
 
-    availableVersion.textContent = `v${publishedReleases[0].tag_name.replace(/^v/, "")}`;
-    publishedReleases.forEach((release) => {
+    availableVersion.textContent = `v${newerReleases[0].tag_name.replace(/^v/, "")}`;
+    newerReleases.forEach((release) => {
       const item = document.createElement("li");
       const link = document.createElement("a");
       link.href = release.html_url || repositoryUrl;
@@ -87,19 +101,10 @@ async function checkForUpdates() {
       link.rel = "noreferrer";
       link.textContent = release.tag_name;
       item.append(link);
-      if (release.tag_name.replace(/^v/, "") === currentVersion) {
-        const label = document.createElement("span");
-        label.textContent = " Installed";
-        item.append(label);
-      }
       availableVersions.append(item);
     });
 
-    if (publishedReleases[0].tag_name.replace(/^v/, "") !== currentVersion) {
-      updateStatus.textContent = "A newer release is available.";
-    } else {
-      updateStatus.textContent = "You have the latest release.";
-    }
+    updateStatus.textContent = "A newer release is available.";
   } catch {
     availableVersion.textContent = "Unavailable";
     const link = document.createElement("a");

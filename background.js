@@ -114,8 +114,10 @@ async function isMatchingTab(tab) {
 async function getSiteForTab(tab) {
   const { sites } = await getSettings();
   if (sites.length === 0) return null;
-  const matchingSite = sites.find((site) => patternMatchesUrl(site.pattern, tab.url));
-  if (matchingSite) return matchingSite;
+  const matchingSites = sites.filter((site) => patternMatchesUrl(site.pattern, tab.url));
+  const activeSite = matchingSites.find((site) => isWithinSchedule(site));
+  if (activeSite) return activeSite;
+  if (matchingSites.length > 0) return matchingSites[0];
   const stored = await chrome.storage.session.get({ inheritedSites: {} });
   return stored.inheritedSites[tab.id] || null;
 }
