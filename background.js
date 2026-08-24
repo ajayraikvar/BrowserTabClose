@@ -29,8 +29,36 @@ function normalizeSite(site) {
     pattern: String(site.pattern || "").trim(),
     timeoutSeconds,
     warningSeconds: normalizeWarning(site.warningSeconds, timeoutSeconds),
+    fromTime: normalizeTime(site.fromTime),
+    toTime: normalizeTime(site.toTime),
     soundEnabled: site.soundEnabled !== false
   };
+}
+
+function normalizeTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || "")) ? value : "";
+}
+
+function isWithinSchedule(site, date = new Date()) {
+  if (!site.fromTime || !site.toTime) return true;
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
+  const [fromHours, fromMinutes] = site.fromTime.split(":").map(Number);
+  const [toHours, toMinutes] = site.toTime.split(":").map(Number);
+  const from = fromHours * 60 + fromMinutes;
+  const to = toHours * 60 + toMinutes;
+  if (from === to) return true;
+  return from < to
+    ? currentMinutes >= from && currentMinutes < to
+    : currentMinutes >= from || currentMinutes < to;
+}
+
+function getScheduleStart(site, date = new Date()) {
+  if (!site.fromTime || !site.toTime) return 0;
+  const [fromHours, fromMinutes] = site.fromTime.split(":").map(Number);
+  const start = new Date(date);
+  start.setHours(fromHours, fromMinutes, 0, 0);
+  if (start > date && site.fromTime > site.toTime) start.setDate(start.getDate() - 1);
+  return start.getTime();
 }
 
 function normalizeWarning(value, timeoutValue) {
@@ -120,16 +148,18 @@ async function markTabActive(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   const site = tab && await getSiteForTab(tab);
   if (!site) return;
-  await scheduleTabAlarms(tabId, timestamp, site.timeoutSeconds, site.warningSeconds);
+  await scheduleTabAlarms(tabId, timestamp, site);
   broadcastStatus();
 }
 
-async function scheduleTabAlarms(tabId, lastActivity, timeoutSeconds, warningSeconds) {
+async function scheduleTabAlarms(tabId, lastActivity, site) {
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
-  const elapsedSeconds = (Date.now() - lastActivity) / 1000;
-  const warningDelay = timeoutSeconds - warningSeconds - elapsedSeconds;
-  const closeDelay = timeoutSeconds - elapsedSeconds;
+  if (!isWithinSchedule(site)) return;
+  const effectiveLastActivity = Math.max(lastActivity, getScheduleStart(site));
+  const elapsedSeconds = (Date.now() - effectiveLastActivity) / 1000;
+  const warningDelay = site.timeoutSeconds - site.warningSeconds - elapsedSeconds;
+  const closeDelay = site.timeoutSeconds - elapsedSeconds;
   if (warningDelay > 0) {
     chrome.alarms.create(warningAlarmName(tabId), { delayInMinutes: warningDelay / 60 });
   }
@@ -152,18 +182,20 @@ async function broadcastStatus() {
     }
     const lastActivity = await getLastActivity(tab.id);
     const alarm = await chrome.alarms.get(closeAlarmName(tab.id));
-    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, site.timeoutSeconds, site.warningSeconds);
-    const elapsedSeconds = Math.floor((Date.now() - lastActivity) / 1000);
+    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, site);
+    const elapsedSeconds = Math.floor((Date.now() - Math.max(lastActivity, getScheduleStart(site))) / 1000);
+    const scheduleActive = isWithinSchedule(site);
     const isWarning = elapsedSeconds >= site.timeoutSeconds - site.warningSeconds;
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
+      scheduleActive,
       timeoutSeconds: site.timeoutSeconds,
       warningSeconds: site.warningSeconds,
       soundEnabled: site.soundEnabled,
-      idleState: isWarning ? "warning" : "active",
-      remainingSeconds: Math.max(0, site.timeoutSeconds - elapsedSeconds),
+      idleState: scheduleActive && isWarning ? "warning" : "active",
+      remainingSeconds: scheduleActive ? Math.max(0, site.timeoutSeconds - elapsedSeconds) : site.timeoutSeconds,
       isActiveTab: activeTabIds.has(tab.id),
-      hasTabActivity: elapsedSeconds < site.timeoutSeconds
+      hasTabActivity: scheduleActive && elapsedSeconds < site.timeoutSeconds
     }).catch(() => {});
   }));
 }
@@ -171,9 +203,9 @@ async function broadcastStatus() {
 async function closeTabIfStillInactive(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   const site = tab && await getSiteForTab(tab);
-  if (!tab || !site) return;
+  if (!tab || !site || !isWithinSchedule(site)) return;
   const lastActivity = await getLastActivity(tabId);
-  if (Date.now() - lastActivity >= site.timeoutSeconds * 1000) {
+  if (Date.now() - Math.max(lastActivity, getScheduleStart(site)) >= site.timeoutSeconds * 1000) {
     await chrome.tabs.remove(tabId);
   }
 }
@@ -251,7 +283,7 @@ async function rescheduleTabAlarms() {
     if (!Number.isInteger(tab.id) || !tab.url) return;
     const site = await getSiteForTab(tab);
     if (!site) return;
-    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), site.timeoutSeconds, site.warningSeconds);
+    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), site);
   }));
 }
 

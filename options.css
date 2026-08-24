@@ -106,7 +106,7 @@ h1 {
 
 .site-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1.6fr) minmax(90px, 0.7fr) minmax(90px, 0.7fr) auto auto;
+  grid-template-columns: minmax(150px, 1.5fr) minmax(90px, 0.7fr) minmax(90px, 0.7fr) auto auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 12px;
@@ -128,6 +128,19 @@ h1 {
   white-space: nowrap;
   color: var(--muted);
   font: 0.8rem "Trebuchet MS", sans-serif;
+}
+
+.time-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font: 0.8rem "Trebuchet MS", sans-serif;
+}
+
+.site-row input[type="time"] {
+  max-width: 112px;
+  padding: 8px;
 }
 
 .empty-state {
@@ -310,5 +323,11 @@ button {
 
   .site-pattern {
     grid-column: 1 / -1;
+  }
+
+  .time-option,
+  .sound-option,
+  .remove-site {
+    grid-column: span 1;
   }
 }

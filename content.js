@@ -9,6 +9,7 @@ let warningSeconds = 10;
 let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let isActiveTab = false;
+let scheduleActive = true;
 let activityTimer;
 let soundEnabled = true;
 let warningSoundPlayed = false;
@@ -21,6 +22,10 @@ function formatTime(seconds) {
 }
 
 function render() {
+  if (!scheduleActive) {
+    panel.hidden = true;
+    return;
+  }
   if (idleState === "active" && remainingSeconds > warningSeconds) {
     panel.hidden = true;
     return;
@@ -59,6 +64,7 @@ chrome.runtime.onMessage.addListener((message) => {
   idleState = message.idleState;
   remainingSeconds = message.remainingSeconds;
   isActiveTab = message.isActiveTab;
+  scheduleActive = message.scheduleActive !== false;
   soundEnabled = message.soundEnabled;
   if (idleState === "active") warningSoundPlayed = false;
   render();
