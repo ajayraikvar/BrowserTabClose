@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.6.0
+
+- Remove the toolbar popup; all EdgeClose controls are managed from the password-protected Options page.
+- Move temporary pause and resume controls into the Options page and require fresh password confirmation for each action.
+- Keep pause state and protection status visible in the Options dashboard.
+- Add encrypted configuration and audit backups in `Downloads/EdgeClose/config-audit.enc`.
+- Add a separately encrypted recovery-key file in `Downloads/EdgeClose/recovery-key.enc` so settings can be restored after extension removal.
+- Keep backup payloads encrypted with AES-GCM and protect the data-encryption key with RSA-OAEP; never write the settings password in plaintext.
+- Add a guided encrypted-backup restore flow to the Options page.
+- Keep audit records sanitized: no passwords, hashes, salts, URLs, titles, rule patterns, tokens, or secrets.
+- Keep per-tab activity timers, rule specificity priority, managed-policy precedence, trusted interaction checks, and wall-clock deadline verification.
+- Update packaging and CI to validate the v1.6.0 source set and exclude obsolete popup files.
+- Sync privacy documentation with encrypted persistent backups and Options-only controls.
+
 ## v1.5.0
 
 - Refresh the Options page with a polished Pro-style dashboard and clearer information hierarchy.
@@ -21,7 +35,6 @@
 - Keep timers isolated per tab and expose monitored-tab countdowns in the toolbar dashboard.
 - Add a policy dashboard showing managed-policy precedence, rule count, monitored-tab count, and pause state.
 - Add a local, bounded audit log that intentionally excludes passwords, URLs, page titles, patterns, and secrets.
-- Persist a sanitized copy of the audit log to `Downloads/EdgeClose/audit-log.json` so existing audit history survives extension removal.
 - Add an explicit extension-pages Content Security Policy and package the toolbar popup files.
 - Keep privacy documentation aligned with local password verification, audit logging, and persistent Downloads storage.
 
