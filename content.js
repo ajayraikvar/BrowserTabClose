@@ -12,6 +12,7 @@ let deadlineAt = 0;
 let isActiveTab = false;
 let scheduleActive = true;
 let activityTimer;
+let deadlineTimer;
 let soundEnabled = true;
 let warningSoundPlayed = false;
 let audioContext;
@@ -62,10 +63,22 @@ function playWarningSound() {
   }
 }
 
+function armDeadlineTimer() {
+  window.clearTimeout(deadlineTimer);
+  if (!deadlineAt || !scheduleActive || !window.top || window.top !== window) return;
+
+  const delay = Math.max(0, deadlineAt - Date.now());
+  deadlineTimer = window.setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
+  }, delay);
+}
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
 
   if (message.enabled === false) {
+    window.clearTimeout(deadlineTimer);
+    deadlineAt = 0;
     panel.hidden = true;
     scheduleActive = false;
     idleState = "active";
@@ -83,6 +96,7 @@ chrome.runtime.onMessage.addListener((message) => {
   soundEnabled = message.soundEnabled !== false;
 
   if (idleState === "active") warningSoundPlayed = false;
+  armDeadlineTimer();
   render();
 });
 
