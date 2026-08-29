@@ -117,9 +117,6 @@ async function getSiteForTab(tab) {
   const activeSite = matchingSites.find((site) => isWithinSchedule(site));
   if (activeSite) return activeSite;
 
-  // A child tab may intentionally inherit a monitored site's rule even when its
-  // own URL does not match the configured pattern. It still must respect the
-  // inherited rule's schedule.
   const inheritedKey = inheritedSiteKey(tab.id);
   if (Number.isInteger(tab.id)) {
     const stored = await chrome.storage.session.get(inheritedKey);
@@ -127,8 +124,6 @@ async function getSiteForTab(tab) {
     if (inheritedSite && isWithinSchedule(inheritedSite)) return inheritedSite;
   }
 
-  // A URL that matches a configured rule but is outside its schedule is paused,
-  // not monitored. This is what makes schedule boundaries start a fresh session.
   return null;
 }
 
@@ -213,7 +208,6 @@ async function broadcastStatus() {
     const effectiveLastActivity = Math.max(lastActivity, getScheduleStart(site));
     const deadlineAt = effectiveLastActivity + site.timeoutSeconds * 1000;
     const remainingSeconds = Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000));
-    const scheduleActive = isWithinSchedule(site);
     const isWarning = remainingSeconds <= site.warningSeconds && remainingSeconds > 0;
 
     const closeAlarm = await chrome.alarms.get(closeAlarmName(tab.id));
@@ -223,15 +217,15 @@ async function broadcastStatus() {
 
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
-      scheduleActive,
+      scheduleActive: true,
       timeoutSeconds: site.timeoutSeconds,
       warningSeconds: site.warningSeconds,
       soundEnabled: site.soundEnabled,
-      idleState: scheduleActive && isWarning ? "warning" : "active",
+      idleState: isWarning ? "warning" : "active",
       remainingSeconds,
       deadlineAt,
       isActiveTab: activeTabIds.has(tab.id),
-      hasTabActivity: scheduleActive && remainingSeconds > 0
+      hasTabActivity: remainingSeconds > 0
     }).catch(() => {});
   }));
 }
@@ -248,6 +242,11 @@ async function closeTabIfStillInactive(tabId) {
   } else {
     await scheduleTabAlarms(tabId, lastActivity, site);
   }
+}
+
+async function handleDeadlineSignal(tabId) {
+  if (!Number.isInteger(tabId)) return;
+  await closeTabIfStillInactive(tabId);
 }
 
 async function configureIdleDetection() {
@@ -329,6 +328,11 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message.type === "edgeclose-activity" && Number.isInteger(sender.tab?.id)) {
     markTabActive(sender.tab.id);
+    return;
+  }
+
+  if (message.type === "edgeclose-deadline" && Number.isInteger(sender.tab?.id)) {
+    handleDeadlineSignal(sender.tab.id);
   }
 });
 
