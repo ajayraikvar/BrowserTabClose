@@ -28,6 +28,9 @@ jobs:
             options.html \
             options.css \
             options.js \
+            popup.html \
+            popup.css \
+            popup.js \
             managed_schema.json \
             privacy-policy.html
 
