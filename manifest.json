@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EdgeClose",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Close selected website tabs after you have been inactive for a chosen time.",
   "permissions": ["tabs", "storage", "alarms", "downloads"],
   "host_permissions": ["<all_urls>", "https://api.github.com/*"],
@@ -14,15 +14,14 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background-v160.js"
   },
   "options_page": "options.html",
   "storage": {
     "managed_schema": "managed_schema.json"
   },
   "action": {
-    "default_title": "EdgeClose",
-    "default_popup": "popup.html"
+    "default_title": "EdgeClose"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
