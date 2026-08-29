@@ -1,0 +1,31 @@
+name: Run clean EdgeClose v1.6.5 rebuild
+
+on:
+  push:
+    paths:
+      - "rebuild-v165-clean.sh"
+      - ".github/workflows/run-clean-v165.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild from v1.6.2 baseline
+        run: bash rebuild-v165-clean.sh
+      - name: Remove one-time rebuild tooling
+        shell: bash
+        run: |
+          rm -f rebuild-v165-clean.sh rebuild-v165.sh
+          rm -f .github/workflows/rebuild-v165.yml .github/workflows/run-rebuild-v165.yml .github/workflows/run-clean-v165.yml
+          git add -A
+          git commit -m "Finalize complete EdgeClose v1.6.5 rebuild" || exit 0
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
