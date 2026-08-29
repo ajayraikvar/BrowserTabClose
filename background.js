@@ -7,6 +7,8 @@ const DEFAULT_WARNING_SECONDS = 10;
 const CHECK_ALARM = "edgeclose-check";
 const WARNING_ALARM_PREFIX = "edgeclose-warning-";
 const CLOSE_ALARM_PREFIX = "edgeclose-close-";
+const LAST_ACTIVITY_PREFIX = "edgeclose-last-activity-";
+const INHERITED_SITE_PREFIX = "edgeclose-inherited-site-";
 const STATUS_MESSAGE = "edgeclose-status";
 
 async function getSettings() {
@@ -79,9 +81,7 @@ function normalizeTimeout(value) {
 }
 
 function normalizePatterns(patterns) {
-  if (!Array.isArray(patterns)) {
-    return [];
-  }
+  if (!Array.isArray(patterns)) return [];
   return patterns
     .map((pattern) => String(pattern).trim())
     .filter(Boolean)
@@ -89,16 +89,16 @@ function normalizePatterns(patterns) {
 }
 
 function patternMatchesUrl(pattern, url) {
-  if (!url || !pattern) {
-    return false;
-  }
+  if (!url || !pattern) return false;
 
   const trimmedPattern = pattern.trim();
   if (!trimmedPattern.includes("://")) {
     try {
       const hostname = new URL(url).hostname.toLowerCase();
       const domainPattern = trimmedPattern.replace(/^\*\.?/, "").replace(/^www\./i, "");
-      const escapedDomain = domainPattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      const escapedDomain = domainPattern
+        .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*");
       return new RegExp(`(^|\\.)${escapedDomain}$`, "i").test(hostname.replace(/^www\./i, ""));
     } catch {
       return false;
@@ -109,19 +109,27 @@ function patternMatchesUrl(pattern, url) {
   return new RegExp(`^${escaped.replace(/\*/g, ".*")}\/?$`, "i").test(url);
 }
 
-async function isMatchingTab(tab) {
-  return Boolean(await getSiteForTab(tab));
-}
-
 async function getSiteForTab(tab) {
   const { sites } = await getSettings();
   if (sites.length === 0) return null;
+
   const matchingSites = sites.filter((site) => patternMatchesUrl(site.pattern, tab.url));
   const activeSite = matchingSites.find((site) => isWithinSchedule(site));
   if (activeSite) return activeSite;
-  if (matchingSites.length > 0) return matchingSites[0];
-  const stored = await chrome.storage.session.get({ inheritedSites: {} });
-  return stored.inheritedSites[tab.id] || null;
+
+  // A child tab may intentionally inherit a monitored site's rule even when its
+  // own URL does not match the configured pattern. It still must respect the
+  // inherited rule's schedule.
+  const inheritedKey = inheritedSiteKey(tab.id);
+  if (Number.isInteger(tab.id)) {
+    const stored = await chrome.storage.session.get(inheritedKey);
+    const inheritedSite = stored[inheritedKey];
+    if (inheritedSite && isWithinSchedule(inheritedSite)) return inheritedSite;
+  }
+
+  // A URL that matches a configured rule but is outside its schedule is paused,
+  // not monitored. This is what makes schedule boundaries start a fresh session.
+  return null;
 }
 
 function closeAlarmName(tabId) {
@@ -132,23 +140,28 @@ function warningAlarmName(tabId) {
   return `${WARNING_ALARM_PREFIX}${tabId}`;
 }
 
+function lastActivityKey(tabId) {
+  return `${LAST_ACTIVITY_PREFIX}${tabId}`;
+}
+
+function inheritedSiteKey(tabId) {
+  return `${INHERITED_SITE_PREFIX}${tabId}`;
+}
+
 async function getLastActivity(tabId) {
-  const stored = await chrome.storage.session.get({ lastActivity: {} });
-  const activity = Number(stored.lastActivity[tabId]);
-  if (activity) return activity;
+  const key = lastActivityKey(tabId);
+  const stored = await chrome.storage.session.get(key);
+  const activity = Number(stored[key]);
+  if (Number.isFinite(activity) && activity > 0) return activity;
 
   const timestamp = Date.now();
-  await chrome.storage.session.set({
-    lastActivity: { ...stored.lastActivity, [tabId]: timestamp }
-  });
+  await chrome.storage.session.set({ [key]: timestamp });
   return timestamp;
 }
 
 async function markTabActive(tabId) {
   const timestamp = Date.now();
-  const stored = await chrome.storage.session.get({ lastActivity: {} });
-  const lastActivity = { ...stored.lastActivity, [tabId]: timestamp };
-  await chrome.storage.session.set({ lastActivity });
+  await chrome.storage.session.set({ [lastActivityKey(tabId)]: timestamp });
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   const site = tab && await getSiteForTab(tab);
   if (!site) return;
@@ -159,16 +172,23 @@ async function markTabActive(tabId) {
 async function scheduleTabAlarms(tabId, lastActivity, site) {
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
+
   if (!isWithinSchedule(site)) return;
+
   const effectiveLastActivity = Math.max(lastActivity, getScheduleStart(site));
   const elapsedSeconds = (Date.now() - effectiveLastActivity) / 1000;
   const warningDelay = site.timeoutSeconds - site.warningSeconds - elapsedSeconds;
   const closeDelay = site.timeoutSeconds - elapsedSeconds;
+
   if (warningDelay > 0) {
-    chrome.alarms.create(warningAlarmName(tabId), { delayInMinutes: warningDelay / 60 });
+    chrome.alarms.create(warningAlarmName(tabId), {
+      delayInMinutes: warningDelay / 60
+    });
   }
   if (closeDelay > 0) {
-    chrome.alarms.create(closeAlarmName(tabId), { delayInMinutes: closeDelay / 60 });
+    chrome.alarms.create(closeAlarmName(tabId), {
+      delayInMinutes: closeDelay / 60
+    });
   }
 }
 
@@ -179,17 +199,28 @@ async function broadcastStatus() {
 
   await Promise.all(tabs.map(async (tab) => {
     if (!Number.isInteger(tab.id)) return;
+
     const site = tab.url && await getSiteForTab(tab);
     if (!site) {
-      chrome.tabs.sendMessage(tab.id, { type: STATUS_MESSAGE, enabled: false }).catch(() => {});
+      chrome.tabs.sendMessage(tab.id, {
+        type: STATUS_MESSAGE,
+        enabled: false
+      }).catch(() => {});
       return;
     }
+
     const lastActivity = await getLastActivity(tab.id);
-    const alarm = await chrome.alarms.get(closeAlarmName(tab.id));
-    if (!alarm) await scheduleTabAlarms(tab.id, lastActivity, site);
-    const elapsedSeconds = Math.floor((Date.now() - Math.max(lastActivity, getScheduleStart(site))) / 1000);
+    const effectiveLastActivity = Math.max(lastActivity, getScheduleStart(site));
+    const deadlineAt = effectiveLastActivity + site.timeoutSeconds * 1000;
+    const remainingSeconds = Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000));
     const scheduleActive = isWithinSchedule(site);
-    const isWarning = elapsedSeconds >= site.timeoutSeconds - site.warningSeconds;
+    const isWarning = remainingSeconds <= site.warningSeconds && remainingSeconds > 0;
+
+    const closeAlarm = await chrome.alarms.get(closeAlarmName(tab.id));
+    if (!closeAlarm) {
+      await scheduleTabAlarms(tab.id, lastActivity, site);
+    }
+
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
       scheduleActive,
@@ -197,9 +228,10 @@ async function broadcastStatus() {
       warningSeconds: site.warningSeconds,
       soundEnabled: site.soundEnabled,
       idleState: scheduleActive && isWarning ? "warning" : "active",
-      remainingSeconds: scheduleActive ? Math.max(0, site.timeoutSeconds - elapsedSeconds) : site.timeoutSeconds,
+      remainingSeconds,
+      deadlineAt,
       isActiveTab: activeTabIds.has(tab.id),
-      hasTabActivity: scheduleActive && elapsedSeconds < site.timeoutSeconds
+      hasTabActivity: scheduleActive && remainingSeconds > 0
     }).catch(() => {});
   }));
 }
@@ -208,9 +240,13 @@ async function closeTabIfStillInactive(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   const site = tab && await getSiteForTab(tab);
   if (!tab || !site || !isWithinSchedule(site)) return;
+
   const lastActivity = await getLastActivity(tabId);
-  if (Date.now() - Math.max(lastActivity, getScheduleStart(site)) >= site.timeoutSeconds * 1000) {
+  const deadlineAt = Math.max(lastActivity, getScheduleStart(site)) + site.timeoutSeconds * 1000;
+  if (Date.now() >= deadlineAt) {
     await chrome.tabs.remove(tabId);
+  } else {
+    await scheduleTabAlarms(tabId, lastActivity, site);
   }
 }
 
@@ -219,13 +255,42 @@ async function configureIdleDetection() {
   chrome.alarms.create(CHECK_ALARM, { periodInMinutes: 0.5 });
 }
 
+async function clearAllTabAlarmState() {
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(alarms
+    .filter((alarm) => alarm.name.startsWith(WARNING_ALARM_PREFIX) || alarm.name.startsWith(CLOSE_ALARM_PREFIX))
+    .map((alarm) => chrome.alarms.clear(alarm.name)));
+}
+
+async function clearInheritedSites() {
+  const stored = await chrome.storage.session.get(null);
+  const keys = Object.keys(stored).filter((key) => key.startsWith(INHERITED_SITE_PREFIX));
+  if (keys.length > 0) await chrome.storage.session.remove(keys);
+}
+
+async function rescheduleTabAlarms() {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.map(async (tab) => {
+    if (!Number.isInteger(tab.id)) return;
+    const site = tab.url && await getSiteForTab(tab);
+    if (!site) {
+      await chrome.alarms.clear(warningAlarmName(tab.id));
+      await chrome.alarms.clear(closeAlarmName(tab.id));
+      return;
+    }
+    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), site);
+  }));
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   configureIdleDetection();
+  rescheduleTabAlarms();
   broadcastStatus();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   configureIdleDetection();
+  rescheduleTabAlarms();
   broadcastStatus();
 });
 
@@ -239,11 +304,12 @@ chrome.tabs.onActivated.addListener(() => {
 
 chrome.tabs.onCreated.addListener(async (tab) => {
   if (!Number.isInteger(tab.id) || !Number.isInteger(tab.openerTabId)) return;
+
   const opener = await chrome.tabs.get(tab.openerTabId).catch(() => null);
   const site = opener && await getSiteForTab(opener);
   if (!site) return;
-  const inheritedSites = await chrome.storage.session.get({ inheritedSites: {} });
-  await chrome.storage.session.set({ inheritedSites: { ...inheritedSites.inheritedSites, [tab.id]: site } });
+
+  await chrome.storage.session.set({ [inheritedSiteKey(tab.id)]: site });
   await markTabActive(tab.id);
 });
 
@@ -255,12 +321,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  const stored = await chrome.storage.session.get({ lastActivity: {} });
-  delete stored.lastActivity[tabId];
-  const inheritedSites = await chrome.storage.session.get({ inheritedSites: {} });
-  await chrome.storage.session.set({ lastActivity: stored.lastActivity });
-  delete inheritedSites.inheritedSites[tabId];
-  await chrome.storage.session.set({ inheritedSites: inheritedSites.inheritedSites });
+  await chrome.storage.session.remove([lastActivityKey(tabId), inheritedSiteKey(tabId)]);
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
 });
@@ -272,31 +333,15 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local" && (changes.sites || changes.timeoutSeconds || changes.warningSeconds || changes.patterns)) {
-    chrome.storage.session.set({ inheritedSites: {} });
-    clearManagedAlarms();
+  if ((areaName === "local" || areaName === "managed") &&
+      (changes.sites || changes.patterns || changes.timeoutSeconds || changes.warningSeconds)) {
+    clearInheritedSites();
+    clearAllTabAlarmState();
     configureIdleDetection();
     rescheduleTabAlarms();
     broadcastStatus();
   }
 });
-
-async function rescheduleTabAlarms() {
-  const tabs = await chrome.tabs.query({});
-  await Promise.all(tabs.map(async (tab) => {
-    if (!Number.isInteger(tab.id) || !tab.url) return;
-    const site = await getSiteForTab(tab);
-    if (!site) return;
-    await scheduleTabAlarms(tab.id, await getLastActivity(tab.id), site);
-  }));
-}
-
-async function clearManagedAlarms() {
-  const alarms = await chrome.alarms.getAll();
-  await Promise.all(alarms
-    .filter((alarm) => alarm.name.startsWith(WARNING_ALARM_PREFIX) || alarm.name.startsWith(CLOSE_ALARM_PREFIX))
-    .map((alarm) => chrome.alarms.clear(alarm.name)));
-}
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name.startsWith(WARNING_ALARM_PREFIX)) {
@@ -311,8 +356,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 
   if (alarm.name !== CHECK_ALARM) return;
+  await rescheduleTabAlarms();
   await broadcastStatus();
 });
 
 configureIdleDetection();
+rescheduleTabAlarms();
 broadcastStatus();

@@ -2,7 +2,7 @@
 
 EdgeClose is a Manifest V3 Microsoft Edge extension that closes tabs matching user-defined URL patterns after the computer has been idle for a chosen duration.
 
-Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration and temporary tab-activity timestamps locally; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show release versions.
+Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration and temporary tab-activity timestamps locally; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show published release versions.
 
 ### Permission disclosure for store review
 
@@ -12,9 +12,11 @@ EdgeClose requests `tabs` because it must inspect open tab URLs and close only t
 
 1. Open `edge://extensions` in Microsoft Edge.
 2. Enable **Developer mode**.
-3. Select **Load unpacked** and choose this folder, or upload `EdgeClose-1.1.6.zip` to Microsoft Edge Add-ons.
+3. Select **Load unpacked** and choose this folder.
 4. Select the EdgeClose toolbar icon to open settings.
 5. Add one URL pattern per line and save.
+
+For a packaged installation, download the ZIP attached to the matching GitHub Release. The repository may contain older historical ZIP files as well.
 
 Patterns support `*`, for example:
 
@@ -25,11 +27,15 @@ https://social.example/*
 
 You can also enter a domain without a protocol, such as `example.com`; this matches the domain, its `www` version, and all page paths. Direct IPv4 addresses, such as `192.168.1.10`, are also supported.
 
-Each website has its own inactivity timeout, warning lead time, optional warning sound, and optional daily `From`/`To` schedule. Leave both schedule fields empty to keep a website active all day. Overnight schedules such as `23:00` to `07:00` are supported. You can add the same website more than once with different schedules and settings; the rule whose schedule is currently active is used. Outside all matching schedules, its inactivity timer and warning are paused; a new session starts when an active scheduled window begins. Use **Add website** in the Options page to configure multiple sites independently. Sound is played once when that website enters its warning period. Enable sound for a site and interact with it once after loading so the browser permits warning audio playback.
+Each website has its own inactivity timeout, warning lead time, optional warning sound, and optional daily `From`/`To` schedule. Leave both schedule fields empty to keep a website active all day. Overnight schedules such as `23:00` to `07:00` are supported. You can add the same website more than once with different schedules and settings; when multiple rules match, the first matching rule whose schedule is active is used. Outside all matching schedules, its inactivity timer and warning are paused; a new session starts when an active scheduled window begins. Use **Add website** in the Options page to configure multiple sites independently. Sound is played once when that website enters its warning period. Enable sound for a site and interact with it once after loading so the browser permits warning audio playback.
 
-The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, and pointer actions on that tab reset its timer; activity on another tab does not. The user can choose how many seconds before timeout the warning appears, then the tab closes if the user remains inactive. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
+The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, pointer, and input actions on that tab reset its timer. Activity on another tab does not. Matching tabs can pass their rule to newly opened child tabs so a configured session can follow links opened in a new tab. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
-Privacy policy URL after enabling GitHub Pages:
+The warning countdown is display-only; the background service worker remains authoritative and re-checks the actual elapsed wall-clock time before closing a tab.
+
+## Privacy policy URL
+
+After enabling GitHub Pages:
 
 ```text
 https://ajayraikvar.github.io/EdgeClose/privacy-policy.html
@@ -37,25 +43,33 @@ https://ajayraikvar.github.io/EdgeClose/privacy-policy.html
 
 The public repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
 
-The settings page automatically checks GitHub releases when opened and every six hours. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. For automatic updates and administrator-managed installation, publish the ZIP through Microsoft Edge Add-ons.
+## Releases and updates
 
-### Administrator-managed settings
+The Options page checks published GitHub Releases when opened and every six hours. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. The built-in updater intentionally compares the installed version only against non-draft, non-prerelease GitHub Releases.
+
+For automatic updates and administrator-managed installation, publish the packaged ZIP through Microsoft Edge Add-ons.
+
+## Administrator-managed settings
 
 On organization-managed Edge devices, administrators can use the `EdgeClose` managed policy with the included `managed_schema.json` schema. Set `sites` through Microsoft Intune, Group Policy, or another Edge policy management tool. For example:
 
 ```json
 {
-	"sites": [
-		{
-			"pattern": "example.com",
-			"timeoutSeconds": 900,
-			"warningSeconds": 10,
-			"fromTime": "23:00",
-			"toTime": "07:00",
-			"soundEnabled": false
-		}
-	]
+  "sites": [
+    {
+      "pattern": "example.com",
+      "timeoutSeconds": 900,
+      "warningSeconds": 10,
+      "fromTime": "23:00",
+      "toTime": "07:00",
+      "soundEnabled": false
+    }
+  ]
 }
 ```
 
-When a managed `sites` policy is present, users can view the rules but cannot add, remove, save, reset, or change them. To prevent users from disabling or uninstalling EdgeClose itself, administrators must also deploy the extension using Edge's `ExtensionSettings` policy with `installation_mode` set to `force_installed`. The extension cannot prevent a user from disabling itself without that browser-level policy.
+When a managed `sites` policy is present, users can view the rules but cannot add, remove, save, reset, or change them. Changes to local or managed configuration cause active per-tab alarms to be rebuilt so existing tabs use the current rules. To prevent users from disabling or uninstalling EdgeClose itself, administrators must also deploy the extension using Edge's `ExtensionSettings` policy with `installation_mode` set to `force_installed`. The extension cannot prevent a user from disabling itself without that browser-level policy.
+
+## Development
+
+The extension currently targets Manifest V3 and keeps the background service worker authoritative for timer state. Before publishing a release, validate the JavaScript files with the repository CI workflow and attach a ZIP containing the exact source version from `manifest.json`.
