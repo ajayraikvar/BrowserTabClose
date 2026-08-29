@@ -44,20 +44,9 @@ function base64ToBytes(value) {
 
 async function derivePasswordHash(password, saltBytes) {
   const passwordBytes = new TextEncoder().encode(password);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    passwordBytes,
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
+  const key = await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: saltBytes,
-      iterations: PBKDF2_ITERATIONS,
-      hash: "SHA-256"
-    },
+    { name: "PBKDF2", salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
     key,
     256
   );
@@ -67,9 +56,7 @@ async function derivePasswordHash(password, saltBytes) {
 function constantTimeEqual(left, right) {
   if (left.length !== right.length) return false;
   let difference = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    difference |= left[index] ^ right[index];
-  }
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
   return difference === 0;
 }
 
@@ -90,10 +77,8 @@ async function setPassword(password) {
 async function verifyPassword(password) {
   const stored = await chrome.storage.local.get([AUTH_HASH_KEY, AUTH_SALT_KEY]);
   if (!stored[AUTH_HASH_KEY] || !stored[AUTH_SALT_KEY]) return false;
-  const salt = base64ToBytes(stored[AUTH_SALT_KEY]);
-  const expectedHash = base64ToBytes(stored[AUTH_HASH_KEY]);
-  const actualHash = await derivePasswordHash(password, salt);
-  return constantTimeEqual(actualHash, expectedHash);
+  const actualHash = await derivePasswordHash(password, base64ToBytes(stored[AUTH_SALT_KEY]));
+  return constantTimeEqual(actualHash, base64ToBytes(stored[AUTH_HASH_KEY]));
 }
 
 function showUnlockForm() {
@@ -117,42 +102,41 @@ function unlockSettings() {
   installedVersion.textContent = `v${currentVersion}`;
   loadSettings();
   checkForUpdates();
+  window.setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
 }
 
 setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setupError.textContent = "";
   const password = setupPassword.value;
-  const confirmation = setupConfirm.value;
-
   if (password.length < 8) {
     setupError.textContent = "Password must be at least 8 characters.";
     return;
   }
-  if (password !== confirmation) {
+  if (password !== setupConfirm.value) {
     setupError.textContent = "Passwords do not match.";
     return;
   }
 
-  setupForm.querySelector("button[type=submit]").disabled = true;
+  const submitButton = setupForm.querySelector("button[type=submit]");
+  submitButton.disabled = true;
   try {
     await setPassword(password);
     unlockSettings();
   } catch {
     setupError.textContent = "Could not set the password. Please try again.";
   } finally {
-    setupForm.querySelector("button[type=submit]").disabled = false;
+    submitButton.disabled = false;
   }
 });
 
 unlockForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   unlockError.textContent = "";
-  const password = unlockPassword.value;
   const submitButton = unlockForm.querySelector("button[type=submit]");
   submitButton.disabled = true;
   try {
-    if (await verifyPassword(password)) {
+    if (await verifyPassword(unlockPassword.value)) {
       unlockSettings();
     } else {
       unlockError.textContent = "Incorrect password.";
@@ -167,11 +151,8 @@ unlockForm.addEventListener("submit", async (event) => {
 
 async function initializeAuth() {
   try {
-    if (await hasPassword()) {
-      showUnlockForm();
-    } else {
-      showSetupForm();
-    }
+    if (await hasPassword()) showUnlockForm();
+    else showSetupForm();
   } catch {
     authDescription.textContent = "EdgeClose could not access its local settings. Reload the page and try again.";
     setupForm.hidden = true;
@@ -182,18 +163,14 @@ async function initializeAuth() {
 function showStatus(message) {
   status.textContent = message;
   window.clearTimeout(showStatus.timer);
-  showStatus.timer = window.setTimeout(() => {
-    status.textContent = "";
-  }, 3000);
+  showStatus.timer = window.setTimeout(() => { status.textContent = ""; }, 3000);
 }
 
 function compareVersions(left, right) {
   const leftParts = left.replace(/^v/, "").split(".").map((part) => Number(part) || 0);
   const rightParts = right.replace(/^v/, "").split(".").map((part) => Number(part) || 0);
   for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
-    if ((leftParts[index] || 0) !== (rightParts[index] || 0)) {
-      return (leftParts[index] || 0) - (rightParts[index] || 0);
-    }
+    if ((leftParts[index] || 0) !== (rightParts[index] || 0)) return (leftParts[index] || 0) - (rightParts[index] || 0);
   }
   return 0;
 }
@@ -276,7 +253,6 @@ async function checkForUpdates() {
       item.append(link);
       availableVersions.append(item);
     });
-
     updateStatus.textContent = "A newer release is available.";
   } catch {
     availableVersion.textContent = "Unavailable";
@@ -290,6 +266,4 @@ async function checkForUpdates() {
 }
 
 checkUpdatesButton.addEventListener("click", checkForUpdates);
-
 initializeAuth();
-window.setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
