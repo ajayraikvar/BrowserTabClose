@@ -285,23 +285,7 @@ async function loadAuditLog() {
 }
 async function sendAudit(event, metadata) { return chrome.runtime.sendMessage({ type: "edgeclose-audit", event, metadata }).catch(() => null); }
 
-async function checkForUpdates() {
-  updateStatus.textContent = "Checking..."; availableVersion.textContent = "Checking..."; availableVersions.replaceChildren();
-  try {
-    const response = await fetch("https://api.github.com/repos/ajayraikvar/EdgeClose/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } });
-    if (!response.ok) throw new Error("Could not load releases");
-    const releases = await response.json();
-    const newerReleases = releases.filter((release) => release.tag_name && !release.draft && !release.prerelease).filter((release) => compareVersions(release.tag_name, currentVersion) > 0).sort((left, right) => compareVersions(right.tag_name, left.tag_name));
-    if (newerReleases.length === 0) { availableVersion.textContent = currentVersion; updateStatus.textContent = "You have the latest release."; return; }
-    availableVersion.textContent = `v${newerReleases[0].tag_name.replace(/^v/, "")}`;
-    newerReleases.forEach((release) => { const item = document.createElement("li"); const link = document.createElement("a"); link.href = release.html_url || repositoryUrl; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = release.tag_name; item.append(link); availableVersions.append(item); });
-    updateStatus.textContent = "A newer release is available.";
-  } catch {
-    availableVersion.textContent = "Unavailable";
-    const link = document.createElement("a"); link.href = repositoryUrl; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = "Open the GitHub repository";
-    updateStatus.replaceChildren(link, document.createTextNode(" to check for updates."));
-  }
-}
+async function checkForUpdates() { updateStatus.textContent = 'Microsoft Edge manages Store updates automatically.'; availableVersion.textContent = currentVersion; availableVersions.replaceChildren(); }
 
-checkUpdatesButton.addEventListener("click", checkForUpdates);
+checkUpdatesButton?.addEventListener?.("click", checkForUpdates);
 initializeAuth();
