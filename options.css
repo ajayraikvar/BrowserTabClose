@@ -56,13 +56,51 @@ h1 {
   line-height: 1.5;
 }
 
-.settings-panel {
+.auth-panel,
+.settings-panel,
+.update-panel {
   min-width: 0;
   padding: 30px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 10px 12px 0 var(--mint);
+}
+
+.auth-panel {
+  max-width: 620px;
+  margin: 0 auto;
+  box-shadow: 12px 14px 0 var(--mint);
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  max-width: 420px;
+  margin-top: 28px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font: 700 0.82rem "Trebuchet MS", sans-serif;
+}
+
+.auth-form input {
+  max-width: none;
+  padding: 12px 13px;
+}
+
+.auth-error {
+  min-height: 1.2em;
+  margin: -2px 0 0;
+  color: #a33b2b;
+  font: 0.82rem "Trebuchet MS", sans-serif;
+}
+
+.auth-form[hidden],
+#protected-content[hidden] {
+  display: none !important;
 }
 
 .field-label {
@@ -239,12 +277,7 @@ input:disabled {
 }
 
 .update-panel {
-  min-width: 0;
   margin-top: 36px;
-  padding: 30px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
   box-shadow: 10px 12px 0 #f1d9ce;
 }
 
@@ -305,13 +338,17 @@ input:disabled {
     padding-top: 42px;
   }
 
-  .settings-panel {
+  .auth-panel,
+  .settings-panel,
+  .update-panel {
     padding: 22px;
+  }
+
+  .auth-panel {
     box-shadow: 6px 8px 0 var(--mint);
   }
 
   .update-panel {
-    padding: 22px;
     box-shadow: 6px 8px 0 #f1d9ce;
   }
 
