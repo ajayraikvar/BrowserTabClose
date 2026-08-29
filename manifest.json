@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EdgeClose",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "Close selected website tabs after you have been inactive for a chosen time.",
   "permissions": [
     "tabs",
@@ -27,7 +27,7 @@
     }
   ],
   "background": {
-    "service_worker": "background-v164.js"
+    "service_worker": "background-v165.js"
   },
   "options_page": "options.html",
   "storage": {

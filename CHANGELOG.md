@@ -1,3 +1,13 @@
+## v1.6.5
+
+- Rebuilt from the complete v1.6.2 source baseline; restored the full timer/rule engine.
+- Self-contained background service worker; no cross-version import.
+- Options-only control surface with authenticated pause/resume.
+- Only one audit file is maintained in Downloads: `EdgeClose/audit-log.json`.
+- Removed GitHub version polling; Microsoft Edge manages Store updates.
+- Fixed Options null-reference handling and AudioContext user-gesture policy.
+- Strengthened exact deadline closure with retry handling.
+
 # Changelog
 
 ## v1.6.0
