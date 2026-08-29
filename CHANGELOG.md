@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.5.0
+
+- Refresh the Options page with a polished Pro-style dashboard and clearer information hierarchy.
+- Add responsive metric cards for policy source, rule count, monitored tabs, and protection state.
+- Improve website rules into clearer cards with automatic-priority indicators and responsive controls.
+- Redesign security, audit, and release sections for easier scanning and administration.
+- Redesign the toolbar popup with a compact Pro dashboard for protection status, monitored tabs, and pause controls.
+- Keep the settings password gate, timer engine, policy precedence, audit controls, and privacy protections from v1.4.0.
+
 ## v1.4.0
 
 - Strengthen the settings password with salted PBKDF2/SHA-256 verification, per-session failed-attempt rate limiting, and password change support.
