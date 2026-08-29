@@ -257,6 +257,7 @@ resetButton.addEventListener("click", async () => { await chrome.storage.local.s
 addSiteButton.addEventListener("click", () => { createSiteRow(); emptySites.hidden = true; });
 
 async function refreshDashboard() {
+  if (!policySource || !policyPrecedence || !ruleCount || !monitoredCount || !protectionState || !pauseState) return;
   const state = await chrome.runtime.sendMessage({ type: "edgeclose-admin-state" }).catch(() => null);
   if (!state) return;
   policySource.textContent = state.source;
@@ -271,6 +272,7 @@ function formatAuditEvent(event) {
   return String(event || "event").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 async function loadAuditLog() {
+  if (!auditList || !auditEmpty) return;
   const entries = await chrome.runtime.sendMessage({ type: "edgeclose-audit-log" }).catch(() => []);
   auditList.replaceChildren(); auditEmpty.hidden = entries.length > 0;
   entries.slice(0, 50).forEach((entry) => {
@@ -285,7 +287,7 @@ async function loadAuditLog() {
 }
 async function sendAudit(event, metadata) { return chrome.runtime.sendMessage({ type: "edgeclose-audit", event, metadata }).catch(() => null); }
 
-async function checkForUpdates() { updateStatus.textContent = 'Microsoft Edge manages Store updates automatically.'; availableVersion.textContent = currentVersion; availableVersions.replaceChildren(); }
+async function checkForUpdates() { if (updateStatus) updateStatus.textContent = 'Microsoft Edge manages Store updates automatically.'; if (availableVersion) availableVersion.textContent = currentVersion; if (availableVersions) availableVersions.replaceChildren(); }
 
 checkUpdatesButton?.addEventListener?.("click", checkForUpdates);
 initializeAuth();
