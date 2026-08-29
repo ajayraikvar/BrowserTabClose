@@ -2,13 +2,9 @@
 
 EdgeClose is a Manifest V3 Microsoft Edge extension that closes tabs matching user-defined URL patterns after the computer has been idle for a chosen duration.
 
-Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration, temporary tab-activity timestamps, and a local settings-password hash/salt; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show published release versions.
+Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. EdgeClose keeps configuration, password verification data, temporary per-tab activity state, pause state, and a bounded local audit log on the device. It does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show published release versions.
 
-### Permission disclosure for store review
-
-EdgeClose requests `tabs` because it must inspect open tab URLs and close only tabs that match the user's configured patterns. It uses `<all_urls>` because users may configure any website and because matching tabs must receive the warning countdown overlay. It does not read page content or record input details; the content script reports only that a supported user interaction occurred.
-
-## Install locally
+### Install locally
 
 1. Open `edge://extensions` in Microsoft Edge.
 2. Enable **Developer mode**.
@@ -16,7 +12,15 @@ EdgeClose requests `tabs` because it must inspect open tab URLs and close only t
 4. On the first installation, EdgeClose automatically opens its Options page and asks you to create a settings password.
 5. After the password is created, every new Options-page session requires that password before settings can be viewed or changed.
 
-For a packaged installation, download the ZIP attached to the matching GitHub Release. The repository may contain older historical ZIP files as well.
+For a packaged installation, download the ZIP attached to the matching GitHub Release.
+
+## Settings security
+
+The Options page is password protected. On first install, EdgeClose requires a password of at least 8 characters. Every later Options-page open requires the password again. The password itself is never stored; EdgeClose uses a per-install random salt with PBKDF2/SHA-256 and a high iteration count. Five consecutive incorrect attempts trigger a 60-second temporary lockout. The Options page provides a password-change workflow after successful unlock.
+
+Passwords are never written to logs, analytics, URLs, GitHub requests, audit entries, or generated HTML. Password input is used only for local verification and cleared after authentication flows.
+
+## Monitoring rules
 
 Patterns support `*`, for example:
 
@@ -25,17 +29,27 @@ https://www.example.com/*
 https://social.example/*
 ```
 
-You can also enter a domain without a protocol, such as `example.com`; this matches the domain, its `www` version, and all page paths. Direct IPv4 addresses, such as `192.168.1.10`, are also supported.
+You can also enter a domain without a protocol, such as `example.com`; this matches the domain, its `www` version, and all page paths. Direct IPv4 addresses are also supported.
 
-Each website has its own inactivity timeout, warning lead time, optional warning sound, and optional daily `From`/`To` schedule. Leave both schedule fields empty to keep a website active all day. Overnight schedules such as `23:00` to `07:00` are supported. You can add the same website more than once with different schedules and settings; when multiple rules match, the first matching rule whose schedule is active is used. Outside all matching schedules, its inactivity timer and warning are paused; a new session starts when an active scheduled window begins. Use **Add website** in the Options page to configure multiple sites independently. Sound is played once when that website enters its warning period. Enable sound for a site and interact with it once after loading so the browser permits warning audio playback.
+Each website has its own inactivity timeout, warning lead time, optional warning sound, and optional daily `From`/`To` schedule. Leave both schedule fields empty to keep a website active all day. Overnight schedules such as `23:00` to `07:00` are supported.
 
-The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, pointer, and input actions on that tab reset its timer. Activity on another tab does not. Matching tabs can pass their rule to newly opened child tabs so a configured session can follow links opened in a new tab. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
+When multiple rules match, EdgeClose applies automatic specificity priority: exact URL/path patterns outrank broad domain rules, longer literal patterns outrank shorter patterns, and wildcard-heavy patterns rank lower. Equal-priority rules retain their configuration order.
 
-The warning countdown is display-only; the background service worker remains authoritative and re-checks the actual elapsed wall-clock time before closing a tab.
+The timer is tracked independently for every matching tab. A timer resets only after trusted, real user interaction such as pointer, keyboard, wheel, touch, input, or change events on that tab. DOM updates, animations, network requests, media playback, and synthetic script-generated events do not reset the timer. Matching tabs can pass their rule to a newly opened child tab so the configured session can follow a link opened in a new tab.
 
-## Settings password
+The background service worker remains authoritative for the close deadline and verifies wall-clock elapsed time before closing. A page-side deadline signal provides a second trigger for short timeouts when browser alarm delivery is delayed.
 
-EdgeClose protects the Options page with a locally stored password verifier. The password is never stored in plaintext. A random salt and a PBKDF2/SHA-256 derived verifier are stored in Microsoft Edge extension storage. The authentication gate is shown before the settings UI is loaded and authentication is required again whenever the Options page is opened. There is no remote password recovery because the password is never sent to the developer or any server.
+## Temporary pause and toolbar dashboard
+
+Select the EdgeClose toolbar icon to open the dashboard. It shows the number of monitored tabs and their remaining time, and provides temporary protection pauses for 15 minutes, 1 hour, or 24 hours. Resume is available from the same dashboard. Pausing clears active per-tab warning/close alarms; protection automatically resumes when the selected pause expires.
+
+## Administrator-managed settings
+
+On organization-managed Edge devices, administrators can use the `EdgeClose` managed policy with the included `managed_schema.json` schema. Managed policy has explicit precedence over local settings: **managed policy > local settings**. When managed rules are present, users can view them but cannot change them from Options. Changes to local or managed configuration cause active per-tab alarms to be rebuilt.
+
+The Options page contains a policy dashboard showing the current source, precedence, rule count, monitored-tab count, and pause state. It also includes a local audit log of EdgeClose management events. The audit log is bounded and intentionally excludes passwords, password hashes, salts, URLs, page titles, rule patterns, tokens, and secrets.
+
+To prevent users from disabling or uninstalling EdgeClose itself, administrators must deploy the extension using Edge's `ExtensionSettings` policy with `installation_mode` set to `force_installed`. The extension cannot prevent a user from disabling or uninstalling itself without browser-level management policy.
 
 ## Privacy policy URL
 
@@ -45,35 +59,14 @@ After enabling GitHub Pages:
 https://ajayraikvar.github.io/EdgeClose/privacy-policy.html
 ```
 
-The public repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow then publishes the policy after pushes to `main`.
+The public repository includes a Pages deployment workflow. In GitHub, select **Settings > Pages > Build and deployment > Source > GitHub Actions** once. The workflow publishes the policy after pushes to `main`.
 
 ## Releases and updates
 
-The Options page checks published GitHub Releases when opened and every six hours. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. The built-in updater intentionally compares the installed version only against non-draft, non-prerelease GitHub Releases.
+The Options page checks published GitHub Releases when opened. A normal Git commit is not a published release, so create a GitHub Release and attach the matching ZIP after each version update. The built-in updater intentionally compares the installed version only against non-draft, non-prerelease GitHub Releases.
 
 For automatic updates and administrator-managed installation, publish the packaged ZIP through Microsoft Edge Add-ons.
 
-## Administrator-managed settings
-
-On organization-managed Edge devices, administrators can use the `EdgeClose` managed policy with the included `managed_schema.json` schema. Set `sites` through Microsoft Intune, Group Policy, or another Edge policy management tool. For example:
-
-```json
-{
-  "sites": [
-    {
-      "pattern": "example.com",
-      "timeoutSeconds": 900,
-      "warningSeconds": 10,
-      "fromTime": "23:00",
-      "toTime": "07:00",
-      "soundEnabled": false
-    }
-  ]
-}
-```
-
-When a managed `sites` policy is present, users can view the rules but cannot add, remove, save, reset, or change them. Changes to local or managed configuration cause active per-tab alarms to be rebuilt so existing tabs use the current rules. To prevent users from disabling or uninstalling EdgeClose itself, administrators must also deploy the extension using Edge's `ExtensionSettings` policy with `installation_mode` set to `force_installed`. The extension cannot prevent a user from disabling itself without that browser-level policy.
-
 ## Development
 
-The extension currently targets Manifest V3 and keeps the background service worker authoritative for timer state. Before publishing a release, validate the JavaScript files with the repository CI workflow and attach a ZIP containing the exact source version from `manifest.json`.
+The extension targets Manifest V3 and keeps the background service worker authoritative for timer state. Before publishing a release, validate JavaScript/JSON with repository CI and attach a ZIP containing the exact source version from `manifest.json`.
