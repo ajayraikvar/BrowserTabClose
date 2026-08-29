@@ -12,6 +12,7 @@ let deadlineAt = 0;
 let scheduleActive = true;
 let activityTimer;
 let deadlineTimer;
+let deadlineRetryTimer;
 let soundEnabled = true;
 let warningSoundPlayed = false;
 let audioContext;
@@ -45,9 +46,7 @@ function initAudioFromGesture() {
   if (!soundEnabled || audioContext) return;
   try {
     audioContext = new AudioContext();
-    if (audioContext.state === "suspended") {
-      audioContext.resume().catch(() => {});
-    }
+    if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
   } catch {
     audioContext = null;
   }
@@ -73,10 +72,24 @@ function playWarningSound() {
 
 function armDeadlineTimer() {
   window.clearTimeout(deadlineTimer);
+  window.clearInterval(deadlineRetryTimer);
   if (!deadlineAt || !scheduleActive || window.top !== window) return;
+
+  const trigger = () => {
+    chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
+  };
   const delay = Math.max(0, deadlineAt - Date.now());
   deadlineTimer = window.setTimeout(() => {
-    chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
+    trigger();
+    let attempts = 0;
+    deadlineRetryTimer = window.setInterval(() => {
+      attempts += 1;
+      if (!scheduleActive || Date.now() + 1000 < deadlineAt || attempts > 8) {
+        window.clearInterval(deadlineRetryTimer);
+        return;
+      }
+      trigger();
+    }, 1000);
   }, delay);
 }
 
@@ -84,6 +97,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
   if (message.enabled === false) {
     window.clearTimeout(deadlineTimer);
+    window.clearInterval(deadlineRetryTimer);
     deadlineAt = 0;
     panel.hidden = true;
     scheduleActive = false;
