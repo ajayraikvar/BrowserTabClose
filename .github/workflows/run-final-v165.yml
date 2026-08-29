@@ -27,7 +27,7 @@ jobs:
           needle="Path('background-v165.js').write_text(bg)"
           insert="bg=re.sub(r'if \\(message\\.type === \\\"edgeclose-backup-now\\\"\\) \\{.*?return true; \\}', '', bg); bg=bg.replace('queueBackup();','')\n"
           if needle not in s: raise SystemExit('background write marker not found')
-          s=s.replace(needle, insert+needle, 1)
+          if insert.strip() not in s: s=s.replace(needle, insert+needle, 1)
           p.write_text(s)
           PY
       - name: Rebuild complete source from v1.6.2
@@ -55,23 +55,13 @@ jobs:
           ! test -e background-v164.js
           ! test -e backup-lifecycle.js
           ! test -e popup.js
-      - name: Update package workflow filenames
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('.github/workflows/package.yml')
-          s=p.read_text().replace('background-v164.js','background-v165.js').replace('options-pro-v164.js','options-pro-v165.js')
-          p.write_text(s)
-          PY
-      - name: Finalize and push
+      - name: Finalize and push source
         shell: bash
         run: |
           rm -f rebuild-v165-final.sh rebuild-v165-clean.sh rebuild-v165.sh
-          rm -f .github/workflows/rebuild-v165.yml .github/workflows/run-rebuild-v165.yml .github/workflows/run-clean-v165.yml .github/workflows/run-final-v165.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -A -- ':!*.yml' ':!*.yaml'
           git commit -m "Finalize complete EdgeClose v1.6.5 source" || exit 0
           git fetch origin main
           git rebase origin/main
