@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Rebuild from v1.6.2
+      - name: Rebuild from v1.6.2 canonical source
         run: bash rebuild-v165.sh
       - name: Remove runner files
         shell: bash
