@@ -11,40 +11,57 @@ permissions:
   contents: read
 
 jobs:
-  syntax:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Check JavaScript syntax
+        shell: bash
         run: |
-          node --check background-v160.js
+          VERSION=$(node -p "require('./manifest.json').version")
+          SUFFIX=$(echo "$VERSION" | tr -d '.')
+          node --check "background-v${SUFFIX}.js"
           node --check content.js
           node --check options.js
-          node --check options-pro.js
-          node --check backup-lifecycle.js
+          node --check "options-pro-v${SUFFIX}.js"
 
       - name: Run repository unit tests
         run: |
           node tests/test-patterns.js
           node tests/test-schedule.js
 
-      - name: Validate JSON and release wiring
+      - name: Validate package contract
+        shell: bash
         run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          SUFFIX=$(echo "$VERSION" | tr -d '.')
           node - <<'NODE'
           const fs = require('fs');
           const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
           JSON.parse(fs.readFileSync('managed_schema.json', 'utf8'));
           const version = fs.readFileSync('VERSION', 'utf8').trim();
+          const suffix = version.replace(/\./g, '');
+          const worker = `background-v${suffix}.js`;
+          const pro = `options-pro-v${suffix}.js`;
           if (manifest.version !== version) throw new Error(`VERSION mismatch: manifest=${manifest.version}, VERSION=${version}`);
-          if (manifest.background?.service_worker !== 'background-v160.js') throw new Error('Unexpected background service worker');
+          if (manifest.background?.service_worker !== worker) throw new Error(`Unexpected background service worker: ${manifest.background?.service_worker}`);
+          if (!fs.existsSync(worker) || !fs.statSync(worker).size) throw new Error(`Missing or empty ${worker}`);
+          if (!fs.existsSync(pro) || !fs.statSync(pro).size) throw new Error(`Missing or empty ${pro}`);
           if (manifest.action?.default_popup) throw new Error('Toolbar popup must not be configured');
           if (manifest.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'self';") throw new Error('Extension CSP is missing or unexpected');
+          if ((manifest.host_permissions || []).some((permission) => permission.includes('api.github.com'))) throw new Error('GitHub API host permission must not be present');
           const html = fs.readFileSync('options.html', 'utf8');
-          for (const script of ['options.js','options-pro.js','backup-lifecycle.js']) if (!html.includes(`src="${script}"`)) throw new Error(`Options page missing ${script}`);
-          if (html.includes('popup.js') || html.includes('popup.html')) throw new Error('Options page still references popup assets');
-          const required = ['manifest.json','background-v160.js','content.js','content.css','options.html','options.css','options.js','options-pro.js','backup-lifecycle.js','managed_schema.json','privacy-policy.html'];
-          for (const file of required) if (!fs.existsSync(file)) throw new Error(`Missing package file: ${file}`);
-          for (const file of ['popup.html','popup.css','popup.js','background.js']) if (fs.existsSync(file)) throw new Error(`Obsolete file remains: ${file}`);
+          for (const script of ['options.js', pro]) if (!html.includes(`src="${script}"`)) throw new Error(`Options page missing ${script}`);
+          for (const stale of ['backup-lifecycle.js','popup.js','popup.html','options-pro.js','background-v160.js','background-v163.js','background-v164.js','background-v165.js']) if (fs.existsSync(stale) || html.includes(stale)) throw new Error(`Obsolete file/reference remains: ${stale}`);
+          if (html.includes('api.github.com')) throw new Error('Options page must not poll GitHub');
+          const background = fs.readFileSync(worker, 'utf8');
+          for (const required of ['siteForTab','schedule','reschedule','closeIfDue','markActive','verifyActionPassword','EdgeClose/audit-log.json']) if (!background.includes(required)) throw new Error(`Missing background core: ${required}`);
+          for (const forbidden of ['importScripts(','edgeclose-backup-now','config-audit.enc','encryptedBackup','queueBackup']) if (background.includes(forbidden)) throw new Error(`Forbidden runtime code remains: ${forbidden}`);
+          const content = fs.readFileSync('content.js', 'utf8');
+          if (!content.includes('event.isTrusted')) throw new Error('Trusted interaction gate missing');
+          if (content.includes('new AudioContext()') && !content.includes('initAudioFromGesture')) throw new Error('AudioContext must be gesture-gated');
+          const pkg = fs.readFileSync('.github/workflows/package.yml','utf8');
+          if (!pkg.includes(worker) || !pkg.includes(pro)) throw new Error('Package workflow does not reference current versioned runtime files');
           NODE
