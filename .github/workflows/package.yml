@@ -22,14 +22,13 @@ jobs:
           rm -f EdgeClose-*.zip
           zip -r EdgeClose-${GITHUB_SHA}.zip \
             manifest.json \
-            background-v160.js \
+            background-v163.js \
             content.js \
             content.css \
             options.html \
             options.css \
             options.js \
-            options-pro.js \
-            backup-lifecycle.js \
+            options-pro-v163.js \
             managed_schema.json \
             privacy-policy.html
 
