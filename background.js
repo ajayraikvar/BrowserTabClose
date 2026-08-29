@@ -74,23 +74,17 @@ function normalizeWarning(value, timeoutValue) {
 
 function normalizeTimeout(value) {
   const timeout = Number(value);
-  if (!Number.isFinite(timeout)) {
-    return DEFAULT_TIMEOUT_SECONDS;
-  }
+  if (!Number.isFinite(timeout)) return DEFAULT_TIMEOUT_SECONDS;
   return Math.max(15, Math.min(86400, Math.round(timeout)));
 }
 
 function normalizePatterns(patterns) {
   if (!Array.isArray(patterns)) return [];
-  return patterns
-    .map((pattern) => String(pattern).trim())
-    .filter(Boolean)
-    .slice(0, 100);
+  return patterns.map((pattern) => String(pattern).trim()).filter(Boolean).slice(0, 100);
 }
 
 function patternMatchesUrl(pattern, url) {
   if (!url || !pattern) return false;
-
   const trimmedPattern = pattern.trim();
   if (!trimmedPattern.includes("://")) {
     try {
@@ -104,7 +98,6 @@ function patternMatchesUrl(pattern, url) {
       return false;
     }
   }
-
   const escaped = trimmedPattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^${escaped.replace(/\*/g, ".*")}\/?$`, "i").test(url);
 }
@@ -167,7 +160,6 @@ async function markTabActive(tabId) {
 async function scheduleTabAlarms(tabId, lastActivity, site) {
   await chrome.alarms.clear(warningAlarmName(tabId));
   await chrome.alarms.clear(closeAlarmName(tabId));
-
   if (!isWithinSchedule(site)) return;
 
   const effectiveLastActivity = Math.max(lastActivity, getScheduleStart(site));
@@ -175,16 +167,8 @@ async function scheduleTabAlarms(tabId, lastActivity, site) {
   const warningDelay = site.timeoutSeconds - site.warningSeconds - elapsedSeconds;
   const closeDelay = site.timeoutSeconds - elapsedSeconds;
 
-  if (warningDelay > 0) {
-    chrome.alarms.create(warningAlarmName(tabId), {
-      delayInMinutes: warningDelay / 60
-    });
-  }
-  if (closeDelay > 0) {
-    chrome.alarms.create(closeAlarmName(tabId), {
-      delayInMinutes: closeDelay / 60
-    });
-  }
+  if (warningDelay > 0) chrome.alarms.create(warningAlarmName(tabId), { delayInMinutes: warningDelay / 60 });
+  if (closeDelay > 0) chrome.alarms.create(closeAlarmName(tabId), { delayInMinutes: closeDelay / 60 });
 }
 
 async function broadcastStatus() {
@@ -194,13 +178,9 @@ async function broadcastStatus() {
 
   await Promise.all(tabs.map(async (tab) => {
     if (!Number.isInteger(tab.id)) return;
-
     const site = tab.url && await getSiteForTab(tab);
     if (!site) {
-      chrome.tabs.sendMessage(tab.id, {
-        type: STATUS_MESSAGE,
-        enabled: false
-      }).catch(() => {});
+      chrome.tabs.sendMessage(tab.id, { type: STATUS_MESSAGE, enabled: false }).catch(() => {});
       return;
     }
 
@@ -211,9 +191,7 @@ async function broadcastStatus() {
     const isWarning = remainingSeconds <= site.warningSeconds && remainingSeconds > 0;
 
     const closeAlarm = await chrome.alarms.get(closeAlarmName(tab.id));
-    if (!closeAlarm) {
-      await scheduleTabAlarms(tab.id, lastActivity, site);
-    }
+    if (!closeAlarm) await scheduleTabAlarms(tab.id, lastActivity, site);
 
     chrome.tabs.sendMessage(tab.id, {
       type: STATUS_MESSAGE,
@@ -281,10 +259,11 @@ async function rescheduleTabAlarms() {
   }));
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   configureIdleDetection();
   rescheduleTabAlarms();
   broadcastStatus();
+  if (details.reason === "install") chrome.runtime.openOptionsPage();
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -303,11 +282,9 @@ chrome.tabs.onActivated.addListener(() => {
 
 chrome.tabs.onCreated.addListener(async (tab) => {
   if (!Number.isInteger(tab.id) || !Number.isInteger(tab.openerTabId)) return;
-
   const opener = await chrome.tabs.get(tab.openerTabId).catch(() => null);
   const site = opener && await getSiteForTab(opener);
   if (!site) return;
-
   await chrome.storage.session.set({ [inheritedSiteKey(tab.id)]: site });
   await markTabActive(tab.id);
 });
@@ -330,7 +307,6 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     markTabActive(sender.tab.id);
     return;
   }
-
   if (message.type === "edgeclose-deadline" && Number.isInteger(sender.tab?.id)) {
     handleDeadlineSignal(sender.tab.id);
   }
@@ -352,13 +328,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await broadcastStatus();
     return;
   }
-
   if (alarm.name.startsWith(CLOSE_ALARM_PREFIX)) {
     const tabId = Number(alarm.name.slice(CLOSE_ALARM_PREFIX.length));
     if (Number.isInteger(tabId)) await closeTabIfStillInactive(tabId);
     return;
   }
-
   if (alarm.name !== CHECK_ALARM) return;
   await rescheduleTabAlarms();
   await broadcastStatus();
