@@ -61,9 +61,10 @@ jobs:
           rm -f rebuild-v165-final.sh rebuild-v165-clean.sh rebuild-v165.sh
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # The rebuild script also edits package.yml for the generated package.
-          # Keep workflow files untouched here; those are synchronized separately through the API.
+          # Both package.yml and validate.yml are workflow files. Keep them untouched
+          # in this source-only commit; synchronize them separately via API.
           git restore .github/workflows/package.yml
+          git restore .github/workflows/validate.yml
           git add -A
           git commit -m "Finalize complete EdgeClose v1.6.5 source" || exit 0
           git fetch origin main
