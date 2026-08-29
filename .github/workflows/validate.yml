@@ -23,14 +23,14 @@ jobs:
           node --check content.js
           node --check options.js
           node --check options-pro.js
-          node --check options-pro-hotfix.js
+          node --check backup-lifecycle.js
 
       - name: Run repository unit tests
         run: |
           node tests/test-patterns.js
           node tests/test-schedule.js
 
-      - name: Validate JSON and manifest
+      - name: Validate JSON and release wiring
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -41,6 +41,10 @@ jobs:
           if (manifest.background?.service_worker !== 'background-v160.js') throw new Error('Unexpected background service worker');
           if (manifest.action?.default_popup) throw new Error('Toolbar popup must not be configured');
           if (manifest.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'self';") throw new Error('Extension CSP is missing or unexpected');
-          const required = ['manifest.json','background-v160.js','content.js','content.css','options.html','options.css','options.js','options-pro.js','options-pro-hotfix.js','managed_schema.json','privacy-policy.html'];
+          const html = fs.readFileSync('options.html', 'utf8');
+          for (const script of ['options.js','options-pro.js','backup-lifecycle.js']) if (!html.includes(`src="${script}"`)) throw new Error(`Options page missing ${script}`);
+          if (html.includes('popup.js') || html.includes('popup.html')) throw new Error('Options page still references popup assets');
+          const required = ['manifest.json','background-v160.js','content.js','content.css','options.html','options.css','options.js','options-pro.js','backup-lifecycle.js','managed_schema.json','privacy-policy.html'];
           for (const file of required) if (!fs.existsSync(file)) throw new Error(`Missing package file: ${file}`);
+          for (const file of ['popup.html','popup.css','popup.js','background.js']) if (fs.existsSync(file)) throw new Error(`Obsolete file remains: ${file}`);
           NODE
