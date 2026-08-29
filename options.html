@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self'; object-src 'self';">
   <title>EdgeClose settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
@@ -14,24 +15,17 @@
       <p id="auth-description" class="intro">Set a password that will be required whenever EdgeClose settings are opened.</p>
 
       <form id="setup-form" class="auth-form" hidden>
-        <label>
-          <span>Password</span>
-          <input id="setup-password" type="password" minlength="8" autocomplete="new-password" required>
-        </label>
-        <label>
-          <span>Confirm password</span>
-          <input id="setup-confirm" type="password" minlength="8" autocomplete="new-password" required>
-        </label>
-        <p class="field-help">Use at least 8 characters. The password itself is never stored.</p>
+        <label><span>Password</span><input id="setup-password" type="password" minlength="8" autocomplete="new-password" required></label>
+        <label><span>Confirm password</span><input id="setup-confirm" type="password" minlength="8" autocomplete="new-password" required></label>
+        <p id="setup-strength" class="password-strength" aria-live="polite"></p>
+        <p class="field-help">Use at least 8 characters. The password itself is never stored or sent anywhere.</p>
         <button type="submit" class="primary-button">Set password</button>
         <p id="setup-error" class="auth-error" role="alert"></p>
       </form>
 
       <form id="unlock-form" class="auth-form" hidden>
-        <label>
-          <span>Password</span>
-          <input id="unlock-password" type="password" autocomplete="current-password" required autofocus>
-        </label>
+        <label><span>Password</span><input id="unlock-password" type="password" autocomplete="current-password" required autofocus></label>
+        <p id="lockout-message" class="field-help" hidden></p>
         <button type="submit" class="primary-button">Unlock settings</button>
         <p id="unlock-error" class="auth-error" role="alert"></p>
       </form>
@@ -41,14 +35,20 @@
       <header class="page-header">
         <p class="eyebrow">EdgeClose</p>
         <h1>Close tabs when you step away.</h1>
-        <p class="intro">Choose the sites Edge should close after you have been inactive.</p>
+        <p class="intro">Configure protection without letting background activity or another user silently change the rules.</p>
       </header>
+
+      <section class="dashboard-grid" aria-label="Protection dashboard">
+        <article class="dashboard-card"><span>Policy source</span><strong id="policy-source">Checking…</strong><small id="policy-precedence">Managed policy takes precedence over local settings.</small></article>
+        <article class="dashboard-card"><span>Rules</span><strong id="rule-count">—</strong><small id="monitored-count">Monitored tabs: —</small></article>
+        <article class="dashboard-card"><span>Protection</span><strong id="protection-state">Checking…</strong><small id="pause-state">No temporary pause.</small></article>
+      </section>
 
       <form id="settings-form" class="settings-panel">
         <div class="section-heading">
           <div>
             <p class="field-label">Monitored websites</p>
-            <p class="field-help">Set a separate timer, warning period, schedule, and sound for every website. Leave From and To empty to keep it active all day.</p>
+            <p class="field-help">Every tab has its own timer. Rules are resolved by specificity: exact URL/path rules win over broad domain or wildcard rules.</p>
           </div>
           <button type="button" id="add-site" class="secondary-button">Add website</button>
         </div>
@@ -60,21 +60,33 @@
           <button type="button" id="reset" class="text-button">Reset</button>
           <span id="status" class="status" role="status" aria-live="polite"></span>
         </div>
-        <p id="managed-notice" class="field-help" hidden>These settings are managed by your administrator.</p>
+        <p id="managed-notice" class="field-help" hidden>These settings are managed by your administrator. Local changes are disabled and managed policy has precedence.</p>
       </form>
+
+      <section class="security-panel" aria-labelledby="security-title">
+        <div class="section-heading"><div><p class="field-label" id="security-title">Security</p><p class="field-help">Change the settings password. Password attempts are rate-limited after repeated failures.</p></div></div>
+        <form id="change-password-form" class="security-form">
+          <label><span>Current password</span><input id="current-password" type="password" autocomplete="current-password" required></label>
+          <label><span>New password</span><input id="new-password" type="password" minlength="8" autocomplete="new-password" required></label>
+          <label><span>Confirm new password</span><input id="new-password-confirm" type="password" minlength="8" autocomplete="new-password" required></label>
+          <p id="change-strength" class="password-strength" aria-live="polite"></p>
+          <button type="submit" class="secondary-button">Change password</button>
+          <p id="change-password-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="audit-panel" aria-labelledby="audit-title">
+        <div class="section-heading"><div><p class="field-label" id="audit-title">Audit log</p><p class="field-help">Local EdgeClose events only. Passwords, browsing URLs, page titles and rule patterns are never recorded.</p></div></div>
+        <div id="audit-list" class="audit-list"></div>
+        <p id="audit-empty" class="empty-state">No audit events yet.</p>
+      </section>
 
       <section class="update-panel" aria-labelledby="updates-title">
         <h2 id="updates-title">Updates</h2>
-        <p class="field-help">EdgeClose checks the project repository automatically for a newer published release.</p>
+        <p class="field-help">EdgeClose checks the project repository for newer published releases. Passwords and browsing data are never included in this request.</p>
         <dl class="version-summary">
-          <div>
-            <dt>Installed</dt>
-            <dd id="installed-version"></dd>
-          </div>
-          <div>
-            <dt>Latest available</dt>
-            <dd id="available-version">Checking...</dd>
-          </div>
+          <div><dt>Installed</dt><dd id="installed-version"></dd></div>
+          <div><dt>Latest available</dt><dd id="available-version">Checking...</dd></div>
         </dl>
         <ul id="available-versions" class="version-list" aria-label="Available releases"></ul>
         <button type="button" id="check-updates" class="text-button">Check now</button>
