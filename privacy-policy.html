@@ -4,11 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EdgeClose Privacy Policy</title>
-  <style>
-    body { max-width: 760px; margin: 48px auto; padding: 0 20px; color: #172329; font: 16px/1.6 Georgia, serif; }
-    h1 { line-height: 1.1; }
-    h2 { margin-top: 32px; font-size: 1.2rem; }
-  </style>
+  <style>body{max-width:760px;margin:48px auto;padding:0 20px;color:#172329;font:16px/1.6 Georgia,serif}h1{line-height:1.1}h2{margin-top:32px;font-size:1.2rem}</style>
 </head>
 <body>
   <h1>EdgeClose Privacy Policy</h1>
@@ -18,16 +14,20 @@
   <p>EdgeClose closes website tabs that you configure after the selected period of inactivity. You can set a separate daily From and To session for each website, including overnight sessions such as 23:00 to 07:00. It processes browser tab URLs only to determine whether a tab matches one of your configured website patterns.</p>
 
   <h2>Data stored</h2>
-  <p>EdgeClose stores your website patterns, timeout settings, warning settings, schedule times, and sound preferences in Microsoft Edge extension storage on your device. It also stores a temporary activity timestamp for each monitored tab and temporary tab relationships used to keep a configured website session. When settings protection is enabled, EdgeClose stores a random password salt and a derived password verifier; it does not store the password itself. On organization-managed devices, an administrator may provide website settings through Edge's managed extension policy instead of local user settings. This data is not sold or used for advertising.</p>
+  <p>EdgeClose stores website patterns, timeout settings, warning settings, schedule times, sound preferences, and temporary per-tab activity timestamps in Microsoft Edge extension storage on your device. It also stores a temporary pause state and a bounded local audit log containing EdgeClose management events. The audit log intentionally excludes passwords, password hashes, salts, browsing URLs, page titles, rule patterns, tokens, and secrets.</p>
+  <p>The settings password is never stored in plaintext. EdgeClose stores a randomly salted PBKDF2/SHA-256 password verifier and its iteration count locally. Passwords are not transmitted to the developer, GitHub, analytics services, or websites.</p>
 
   <h2>Data shared</h2>
-  <p>EdgeClose does not send browsing history, page contents, keystrokes, mouse actions, passwords, or stored settings to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no user data is included in that request.</p>
+  <p>EdgeClose does not send browsing history, page contents, keystrokes, mouse actions, passwords, or stored settings to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.</p>
 
-  <h2>Settings password</h2>
-  <p>The password protects access to the EdgeClose Options page on the local device. The password is processed locally using PBKDF2 with SHA-256 and a random salt. The password is never transmitted to the developer or any server. Authentication is required whenever the Options page is opened.</p>
+  <h2>User interaction</h2>
+  <p>Timer resets are based on trusted browser user-interaction events such as pointer, keyboard, wheel, touch, input, and change events. DOM changes, animations, network activity, media playback, and synthetic script-generated events do not reset the inactivity timer.</p>
+
+  <h2>Managed devices</h2>
+  <p>On organization-managed devices, an administrator may provide EdgeClose rules through Edge's managed extension policy. Managed policy rules take precedence over local user settings. The extension does not transmit managed-policy values to the developer.</p>
 
   <h2>Your controls</h2>
-  <p>You control which websites are monitored, the timeout, the warning period, the daily session, warning sound, and the settings password. Removing configured websites stops future monitoring. Removing the extension removes its stored extension data according to Edge's extension storage behavior.</p>
+  <p>You control which websites are monitored, the timeout, warning period, daily session, and warning sound when the extension is not administrator-managed. The toolbar provides temporary protection pause controls. Removing configured websites stops future monitoring. Removing the extension removes its stored extension data according to Edge's extension storage behavior.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions, use the support contact published with the EdgeClose listing.</p>
