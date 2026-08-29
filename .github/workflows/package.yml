@@ -1,4 +1,4 @@
-# Release pipeline: every versioned main push builds and publishes the matching package.
+# Release pipeline: every validated source change builds and publishes the matching package.
 name: Build extension package
 
 on:
@@ -7,6 +7,12 @@ on:
     paths:
       - "manifest.json"
       - "VERSION"
+      - "content.js"
+      - "background-v164.js"
+      - "options.html"
+      - "options.js"
+      - "options-pro-v164.js"
+      - "privacy-policy.html"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +30,7 @@ jobs:
           rm -f EdgeClose-*.zip
           zip -r EdgeClose-${GITHUB_SHA}.zip \
             manifest.json \
+            background-v163.js \
             background-v164.js \
             content.js \
             content.css \
