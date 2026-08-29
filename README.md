@@ -2,7 +2,7 @@
 
 EdgeClose is a Manifest V3 Microsoft Edge extension that closes tabs matching user-defined URL patterns after the computer has been idle for a chosen duration.
 
-Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration and temporary tab-activity timestamps locally; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show published release versions.
+Read the [EdgeClose Privacy Policy](privacy-policy.html) before publishing. The extension stores only configuration, temporary tab-activity timestamps, and a local settings-password hash/salt; it does not transmit browsing history or page content. The Options page contacts the public GitHub API only to show published release versions.
 
 ### Permission disclosure for store review
 
@@ -13,8 +13,8 @@ EdgeClose requests `tabs` because it must inspect open tab URLs and close only t
 1. Open `edge://extensions` in Microsoft Edge.
 2. Enable **Developer mode**.
 3. Select **Load unpacked** and choose this folder.
-4. Select the EdgeClose toolbar icon to open settings.
-5. Add one URL pattern per line and save.
+4. On the first installation, EdgeClose automatically opens its Options page and asks you to create a settings password.
+5. After the password is created, every new Options-page session requires that password before settings can be viewed or changed.
 
 For a packaged installation, download the ZIP attached to the matching GitHub Release. The repository may contain older historical ZIP files as well.
 
@@ -32,6 +32,10 @@ Each website has its own inactivity timeout, warning lead time, optional warning
 The timer is tracked separately for each matching tab. Mouse, keyboard, wheel, touch, pointer, and input actions on that tab reset its timer. Activity on another tab does not. Matching tabs can pass their rule to newly opened child tabs so a configured session can follow links opened in a new tab. Website DOM updates, animations, network activity, and floating bubbles do not reset the timer. An empty pattern list leaves tabs untouched.
 
 The warning countdown is display-only; the background service worker remains authoritative and re-checks the actual elapsed wall-clock time before closing a tab.
+
+## Settings password
+
+EdgeClose protects the Options page with a locally stored password verifier. The password is never stored in plaintext. A random salt and a PBKDF2/SHA-256 derived verifier are stored in Microsoft Edge extension storage. The authentication gate is shown before the settings UI is loaded and authentication is required again whenever the Options page is opened. There is no remote password recovery because the password is never sent to the developer or any server.
 
 ## Privacy policy URL
 
