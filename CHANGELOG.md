@@ -2,6 +2,11 @@
 
 ## v1.3.3
 
+- Add a first-run settings password setup screen that opens automatically after installation.
+- Require the settings password every time the Options page is opened.
+- Store only a PBKDF2/SHA-256 password verifier and random salt locally; never store the plaintext password.
+- Keep the settings form completely hidden until authentication succeeds.
+- Update the privacy policy and documentation for local settings protection.
 - Address certification feedback for monitored-tab closing reliability.
 - Keep the background service worker authoritative for the actual close deadline.
 - Add a page-side deadline signal as a second close trigger so short configured timeouts are not dependent on alarm precision alone.
