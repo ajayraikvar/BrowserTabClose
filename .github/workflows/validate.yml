@@ -22,7 +22,22 @@ jobs:
           node --check background.js
           node --check content.js
           node --check options.js
+          node --check popup.js
 
-      - name: Validate JSON
+      - name: Validate JSON and version
         run: |
-          node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8')); JSON.parse(require('fs').readFileSync('managed_schema.json', 'utf8'));"
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          JSON.parse(fs.readFileSync('managed_schema.json', 'utf8'));
+          const version = fs.readFileSync('VERSION', 'utf8').trim();
+          if (manifest.version !== version) {
+            throw new Error(`VERSION mismatch: manifest=${manifest.version}, VERSION=${version}`);
+          }
+          if (manifest.action?.default_popup !== 'popup.html') {
+            throw new Error('Toolbar popup is not configured');
+          }
+          if (manifest.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'self';") {
+            throw new Error('Extension CSP is missing or unexpected');
+          }
+          NODE
