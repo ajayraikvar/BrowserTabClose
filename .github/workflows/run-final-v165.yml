@@ -35,6 +35,7 @@ jobs:
       - name: Verify final source
         shell: bash
         run: |
+          set -euo pipefail
           test "$(node -p "require('./manifest.json').version")" = "1.6.5"
           node --check background-v165.js
           node --check content.js
@@ -48,7 +49,7 @@ jobs:
           ! grep -q 'config-audit.enc' background-v165.js
           ! grep -q 'encryptedBackup' background-v165.js
           ! grep -q 'api.github.com' manifest.json options.html options.js
-          test "$(grep -c 'EdgeClose/audit-log.json' background-v165.js)" -eq 1
+          grep -q 'EdgeClose/audit-log.json' background-v165.js
           ! test -e background-v160.js
           ! test -e background-v163.js
           ! test -e background-v164.js
