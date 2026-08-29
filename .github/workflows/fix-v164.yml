@@ -1,0 +1,240 @@
+name: Fix EdgeClose v1.6.4
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fix-v164.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          root = Path('.')
+
+          # Version + manifest.
+          manifest = json.loads((root/'manifest.json').read_text())
+          manifest['version'] = '1.6.4'
+          manifest['background'] = {'service_worker': 'background-v164.js'}
+          manifest['permissions'] = ['tabs', 'storage', 'alarms', 'downloads']
+          manifest['host_permissions'] = ['<all_urls>']
+          (root/'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          (root/'VERSION').write_text('1.6.4\n')
+
+          # Reuse the known-good v1.6.3 runtime and add authenticated pause/resume handling.
+          base_bg = (root/'background-v163.js').read_text()
+          auth = r'''
+          // v1.6.4: sensitive pause/resume actions are authenticated in the service worker.
+          const EC164_AUTH_HASH = "edgeclose-settings-password-hash";
+          const EC164_AUTH_SALT = "edgeclose-settings-password-salt";
+          const EC164_AUTH_ITERATIONS = "edgeclose-settings-password-iterations";
+
+          async function ec164VerifyPassword(password) {
+            try {
+              const stored = await chrome.storage.local.get([EC164_AUTH_HASH, EC164_AUTH_SALT, EC164_AUTH_ITERATIONS]);
+              if (!stored[EC164_AUTH_HASH] || !stored[EC164_AUTH_SALT]) return false;
+              const raw = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(password || "")), "PBKDF2", false, ["deriveBits"]);
+              const bits = await crypto.subtle.deriveBits({
+                name: "PBKDF2",
+                salt: Uint8Array.from(atob(stored[EC164_AUTH_SALT]), (c) => c.charCodeAt(0)),
+                iterations: Number(stored[EC164_AUTH_ITERATIONS]) || 310000,
+                hash: "SHA-256"
+              }, raw, 256);
+              const expected = Uint8Array.from(atob(stored[EC164_AUTH_HASH]), (c) => c.charCodeAt(0));
+              const actual = new Uint8Array(bits);
+              if (expected.length !== actual.length) return false;
+              let diff = 0;
+              for (let i = 0; i < expected.length; i += 1) diff |= expected[i] ^ actual[i];
+              return diff === 0;
+            } catch { return false; }
+          }
+
+          chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.type !== "edgeclose-verify-password") return;
+            ec164VerifyPassword(message.password).then((ok) => sendResponse({ ok })).catch(() => sendResponse({ ok: false }));
+            return true;
+          });
+          '''
+          (root/'background-v164.js').write_text(base_bg + '\n' + auth)
+
+          # Options page: remove backup UI/wiring and keep Microsoft Edge as the only update authority.
+          html = (root/'options.html').read_text()
+          html = html.replace('  <script src="options-pro.js"></script>\n', '  <script src="options-pro-v164.js"></script>\n')
+          html = html.replace('  <script src="backup-lifecycle.js"></script>\n', '')
+          html = html.replace('EdgeClose checks published releases for newer versions. Passwords and browsing data are never included.', 'Microsoft Edge manages updates for extensions installed from the Microsoft Edge Add-ons Store.')
+          html = html.replace('<button type="button" id="check-updates" class="text-button">Check now</button>', '')
+          html = html.replace('<ul id="available-versions" class="version-list" aria-label="Available releases"></ul>', '')
+          (root/'options.html').write_text(html)
+
+          # Options JS: make optional dashboard/audit nodes null-safe and remove remote update checking.
+          opts = (root/'options.js').read_text()
+          start = opts.find('async function checkForUpdates() {')
+          end = opts.find('\n\ncheckUpdatesButton.addEventListener', start)
+          if start >= 0:
+              if end < 0: end = len(opts)
+              opts = opts[:start] + "async function checkForUpdates() { if (updateStatus) updateStatus.textContent = 'Microsoft Edge manages Store updates automatically.'; if (availableVersion) availableVersion.textContent = currentVersion; if (availableVersions) availableVersions.replaceChildren(); }" + opts[end:]
+          opts = opts.replace('checkUpdatesButton.addEventListener("click", checkForUpdates);', 'checkUpdatesButton?.addEventListener?.("click", checkForUpdates);')
+          opts = opts.replace('function unlockSettings() {\n  authGate.hidden = true;', 'function unlockSettings() {\n  if (!authGate || !protectedContent) return;\n  authGate.hidden = true;')
+          opts = opts.replace('async function loadAuditLog() {\n  const entries', 'async function loadAuditLog() {\n  if (!auditList || !auditEmpty) return;\n  const entries')
+          opts = opts.replace('async function refreshDashboard() {\n  const state', 'async function refreshDashboard() {\n  if (!policySource || !policyPrecedence || !ruleCount || !monitoredCount || !protectionState || !pauseState) return;\n  const state')
+          # Do not invoke a removed update button handler on pages that no longer render it.
+          opts = opts.replace('  checkForUpdates();\n', '  checkForUpdates();\n')
+          (root/'options.js').write_text(opts)
+
+          # Options-only pause controls; authentication is validated by the background worker.
+          pro = r'''(() => {
+            const $ = (selector) => document.querySelector(selector);
+            const inject = () => {
+              const root = $('#protected-content');
+              if (!root || $('#ec164-controls')) return;
+              const section = document.createElement('section');
+              section.id = 'ec164-controls';
+              section.className = 'ec160-card';
+              section.innerHTML = '<div class="ec160-head"><div><p class="ec160-kicker">Protection control</p><h2>Temporary pause</h2><p class="ec160-copy">Pause and resume are available only from this password-protected Options page.</p></div><span id="ec164-pill" class="ec160-pill">Protection ON</span></div><div class="ec160-actions"><button type="button" data-ec164-pause="15">15 minutes</button><button type="button" data-ec164-pause="60">1 hour</button><button type="button" data-ec164-pause="1440">24 hours</button><button id="ec164-resume" type="button" class="wide">Resume protection</button></div>';
+              root.insertBefore(section, root.firstChild);
+
+              const modal = document.createElement('div');
+              modal.className = 'ec160-modal';
+              modal.hidden = true;
+              modal.innerHTML = '<div class="ec160-dialog" role="dialog" aria-modal="true" aria-labelledby="ec164-auth-title"><h2 id="ec164-auth-title">Password required</h2><p id="ec164-auth-copy">Enter your settings password to continue.</p><form id="ec164-auth-form"><input id="ec164-auth-password" type="password" autocomplete="current-password" required><div class="ec160-dialog-actions"><button type="button" id="ec164-cancel" class="text-button">Cancel</button><button type="submit" class="primary-button">Confirm</button></div><p id="ec164-auth-error" class="ec160-status"></p></form></div>';
+              document.body.append(modal);
+
+              const ask = (copy, action) => new Promise((resolve) => {
+                $('#ec164-auth-copy').textContent = copy;
+                $('#ec164-auth-password').value = '';
+                $('#ec164-auth-error').textContent = '';
+                modal.hidden = false;
+                const cancel = () => { modal.hidden = true; cleanup(); resolve(false); };
+                const submit = async (event) => {
+                  event.preventDefault();
+                  const result = await chrome.runtime.sendMessage({ type: 'edgeclose-verify-password', password: $('#ec164-auth-password').value }).catch(() => ({ ok: false }));
+                  if (!result?.ok) { $('#ec164-auth-error').textContent = 'Incorrect password.'; $('#ec164-auth-password').select(); return; }
+                  try { await action(); modal.hidden = true; cleanup(); resolve(true); } catch { $('#ec164-auth-error').textContent = 'Action could not be completed.'; }
+                };
+                const cleanup = () => { $('#ec164-cancel').removeEventListener('click', cancel); $('#ec164-auth-form').removeEventListener('submit', submit); };
+                $('#ec164-cancel').addEventListener('click', cancel);
+                $('#ec164-auth-form').addEventListener('submit', submit);
+                $('#ec164-auth-password').focus();
+              });
+
+              const refresh = async () => {
+                const state = await chrome.runtime.sendMessage({ type: 'edgeclose-admin-state' }).catch(() => null);
+                const pill = $('#ec164-pill');
+                if (pill && state) { pill.textContent = state.paused ? 'Protection paused' : 'Protection ON'; pill.classList.toggle('paused', !!state.paused); }
+              };
+
+              section.querySelectorAll('[data-ec164-pause]').forEach((button) => button.addEventListener('click', () => ask('Enter your settings password to pause protection.', async () => {
+                await chrome.runtime.sendMessage({ type: 'edgeclose-pause', minutes: Number(button.dataset.ec164Pause) });
+                await refresh();
+              })));
+              $('#ec164-resume').addEventListener('click', () => ask('Enter your settings password to resume protection.', async () => {
+                await chrome.runtime.sendMessage({ type: 'edgeclose-resume' });
+                await refresh();
+              }));
+              refresh();
+            };
+            inject();
+          })();
+          '''
+          (root/'options-pro-v164.js').write_text(pro)
+
+          # Content deadline: add a short retry window after the exact deadline so short timers still close if the first wakeup is delayed.
+          content = (root/'content.js').read_text()
+          content = content.replace('let deadlineTimer;\n', 'let deadlineTimer;\nlet deadlineRetryTimer;\n')
+          old = '''function armDeadlineTimer() {
+  window.clearTimeout(deadlineTimer);
+  if (!deadlineAt || !scheduleActive || window.top !== window) return;
+  const delay = Math.max(0, deadlineAt - Date.now());
+  deadlineTimer = window.setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
+  }, delay);
+}'''
+          new = '''function armDeadlineTimer() {
+  window.clearTimeout(deadlineTimer);
+  window.clearInterval(deadlineRetryTimer);
+  if (!deadlineAt || !scheduleActive || window.top !== window) return;
+  const trigger = () => chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
+  const delay = Math.max(0, deadlineAt - Date.now());
+  deadlineTimer = window.setTimeout(() => {
+    trigger();
+    let attempts = 0;
+    deadlineRetryTimer = window.setInterval(() => {
+      attempts += 1;
+      if (!scheduleActive || Date.now() + 1000 < deadlineAt || attempts > 8) {
+        window.clearInterval(deadlineRetryTimer);
+        return;
+      }
+      trigger();
+    }, 1000);
+  }, delay);
+}'''
+          content = content.replace(old, new)
+          content = content.replace('    window.clearTimeout(deadlineTimer);\n    deadlineAt = 0;', '    window.clearTimeout(deadlineTimer);\n    window.clearInterval(deadlineRetryTimer);\n    deadlineAt = 0;')
+          (root/'content.js').write_text(content)
+
+          # Update privacy wording to match the real data behavior.
+          pp = (root/'privacy-policy.html').read_text()
+          pp = re.sub(r'<h2>Encrypted backup</h2>.*?<h2>Audit log</h2>', '<h2>Local audit log</h2><p>EdgeClose keeps a bounded audit log locally and maintains an up-to-date copy as <code>Downloads/EdgeClose/audit-log.json</code>. The file contains management events only. Configuration and recovery backups are not created automatically.</p><p>The Downloads audit file is ordinary user data and can be read, modified, or deleted by a user with permission to access that folder.</p><h2>Audit log</h2>', pp, flags=re.S)
+          pp = pp.replace('The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.', 'EdgeClose does not contact GitHub or another update service to check versions. Microsoft Edge manages updates for Store-installed extensions.')
+          (root/'privacy-policy.html').write_text(pp)
+
+          # Changelog.
+          ch = (root/'CHANGELOG.md').read_text()
+          entry = '''## v1.6.4
+
+- Fix Options-page null-reference startup errors when optional dashboard or audit elements are unavailable.
+- Authenticate every temporary pause and resume action through the background service worker.
+- Strengthen short-timer closure reliability with a page-side deadline retry window in addition to background alarms.
+- Remove automatic configuration and recovery downloads; only the single local audit-log file is maintained in `Downloads/EdgeClose/audit-log.json`.
+- Remove GitHub release polling from the extension; Microsoft Edge manages updates for Store-installed versions.
+- Keep the package limited to the current v1.6.4 runtime and Options-only control surface.
+
+'''
+          if not ch.startswith('## v1.6.4'):
+              (root/'CHANGELOG.md').write_text(entry + ch)
+
+          # Obsolete migration files are not part of the current runtime/package.
+          for obsolete in ['backup-lifecycle.js', 'popup.html', 'popup.css', 'popup.js', '.github/workflows/store-standardize-v163.yml', '.github/workflows/standardize-v163.yml']:
+              p = root/obsolete
+              if p.exists(): p.unlink()
+
+          # Remove old Pro helper from source tree when the versioned helper is present.
+          old_pro = root/'options-pro.js'
+          if old_pro.exists(): old_pro.unlink()
+          PY
+
+      - name: Validate
+        run: |
+          node --check content.js
+          node --check options.js
+          node --check options-pro-v164.js
+          node --check background-v164.js
+          node -e "const m=require('./manifest.json'); if(m.version!=='1.6.4') process.exit(1); if(m.background.service_worker!=='background-v164.js') process.exit(1); if(m.host_permissions.some(x=>x.includes('api.github.com'))) process.exit(1);"
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Release EdgeClose v1.6.4 fixes" || exit 0
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Remove one-time workflow
+        if: ${{ always() }}
+        shell: bash
+        run: true
