@@ -1,0 +1,46 @@
+name: Rebuild EdgeClose from v1.6.2
+
+on:
+  push:
+    paths:
+      - "tools/rebuild_v166.py"
+      - "REBUILD_V166_TRIGGER.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run deterministic rebuild
+        run: python3 tools/rebuild_v166.py
+      - name: Verify complete source
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./manifest.json').version")
+          SUFFIX=$(echo "$VERSION" | tr -d '.')
+          test "$VERSION" = "1.6.6"
+          test "$(node -p "require('./manifest.json').background.service_worker")" = "background-v${SUFFIX}.js"
+          node --check "background-v${SUFFIX}.js"
+          node --check content.js
+          node --check options.js
+          node --check "options-pro-v${SUFFIX}.js"
+          node -e "const fs=require('fs'),m=require('./manifest.json'),v=fs.readFileSync('VERSION','utf8').trim();if(m.version!==v)throw Error('version mismatch');if(m.action&&m.action.default_popup)throw Error('popup remains');if((m.host_permissions||[]).some(x=>x.includes('api.github.com')))throw Error('GitHub permission remains');const h=fs.readFileSync('options.html','utf8');for(const s of ['options.js',`options-pro-v${v.replace(/\\./g,'')}.js`])if(!h.includes('src=\"'+s+'\"'))throw Error('missing '+s);for(const s of ['backup-lifecycle.js','popup.js','options-pro.js','background-v160.js','background-v163.js','background-v164.js','background-v165.js'])if(fs.existsSync(s)||h.includes(s))throw Error('obsolete '+s);const b=fs.readFileSync(`background-v${v.replace(/\\./g,'')}.js`,'utf8');for(const s of ['siteForTab','schedule','reschedule','closeIfDue','markActive','verifyActionPassword','EdgeClose/audit-log.json'])if(!b.includes(s))throw Error('missing core '+s);for(const s of ['importScripts(','edgeclose-backup-now','config-audit.enc','encryptedBackup','queueBackup'])if(b.includes(s))throw Error('legacy '+s);const c=fs.readFileSync('content.js','utf8');if(!c.includes('event.isTrusted'))throw Error('trusted interaction missing');if(c.includes('new AudioContext()')&&!c.includes('initAudioFromGesture'))throw Error('audio gate missing');"
+      - name: Commit rebuilt source
+        shell: bash
+        run: |
+          rm -f REBUILD_V166_TRIGGER.txt
+          rm -f tools/rebuild_v166.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- ':!*.yml' ':!*.yaml'
+          git commit -m "Rebuild EdgeClose v1.6.6 from complete v1.6.2 source" || exit 0
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
