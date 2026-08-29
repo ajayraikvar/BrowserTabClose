@@ -4,24 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EdgeClose Privacy Policy</title>
-  <style>body{max-width:760px;margin:48px auto;padding:0 20px;color:#172329;font:16px/1.6 Georgia,serif}h1{line-height:1.1}h2{margin-top:32px;font-size:1.2rem}</style>
+  <style>body{max-width:760px;margin:48px auto;padding:0 20px;color:#172329;font:16px/1.6 Georgia,serif}h1{line-height:1.1}h2{margin-top:32px;font-size:1.2rem}code{padding:1px 4px;background:#eef3f6;border-radius:4px}</style>
 </head>
 <body>
   <h1>EdgeClose Privacy Policy</h1>
   <p>Effective date: August 29, 2026</p>
 
   <h2>What EdgeClose does</h2>
-  <p>EdgeClose closes website tabs that you configure after the selected period of inactivity. You can set a separate daily From and To session for each website, including overnight sessions such as 23:00 to 07:00. It processes browser tab URLs only to determine whether a tab matches one of your configured website patterns.</p>
+  <p>EdgeClose closes website tabs that match rules you configure after the selected period of inactivity. It processes browser tab URLs only to determine whether a tab matches a configured rule.</p>
 
   <h2>Data stored</h2>
-  <p>EdgeClose stores website patterns, timeout settings, warning settings, schedule times, sound preferences, and temporary per-tab activity timestamps in Microsoft Edge extension storage on your device. It also stores a temporary pause state and a bounded local audit log containing EdgeClose management events. The audit log intentionally excludes passwords, password hashes, salts, browsing URLs, page titles, rule patterns, tokens, and secrets.</p>
-  <p>The settings password is never stored in plaintext. EdgeClose stores a randomly salted PBKDF2/SHA-256 password verifier and its iteration count locally. Passwords are not transmitted to the developer, GitHub, analytics services, or websites.</p>
+  <p>EdgeClose stores website patterns, timeout settings, warning settings, schedule times, sound preferences, temporary per-tab activity timestamps, a temporary pause state, password-verification data, and a bounded local audit log on the device.</p>
+  <p>The settings password is never stored in plaintext. A random salt and PBKDF2/SHA-256 password verifier are stored locally. Passwords are not transmitted to the developer, GitHub, analytics services, or websites.</p>
 
-  <h2>Persistent audit copy</h2>
-  <p>EdgeClose also maintains a sanitized audit-log copy in the browser's Downloads folder at <code>EdgeClose/audit-log.json</code>. This is a normal user file and is independent of the extension's storage, so an existing copy remains on the computer if the extension is later removed. The extension cannot record a new uninstall event after it has been removed.</p>
+  <h2>Encrypted backup</h2>
+  <p>To help settings and audit history survive extension removal, EdgeClose can maintain encrypted backup files in the browser's Downloads folder:</p>
+  <p><code>EdgeClose/config-audit.enc</code><br><code>EdgeClose/recovery-key.enc</code></p>
+  <p>The configuration/audit file is encrypted with AES-GCM using a randomly generated data key. That data key is protected with an RSA public key. The corresponding RSA private recovery key is itself encrypted with a password-derived AES-GCM key and stored in a separate recovery file.</p>
+  <p>The backup files do not contain a plaintext password. Without the password and both backup files, the configuration and audit history cannot be restored by EdgeClose. These files are ordinary user files, so a person with permission to edit the Downloads folder can still delete, replace, or corrupt them.</p>
+
+  <h2>Audit log</h2>
+  <p>The audit log contains EdgeClose management events only. It intentionally excludes passwords, password hashes, salts, browsing URLs, page titles, rule patterns, tokens, secrets, page content, and keystrokes.</p>
 
   <h2>Data shared</h2>
-  <p>EdgeClose does not send browsing history, page contents, keystrokes, mouse actions, passwords, stored settings, or audit-log data to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.</p>
+  <p>EdgeClose does not send browsing history, page contents, keystrokes, passwords, stored settings, or audit-log data to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.</p>
 
   <h2>User interaction</h2>
   <p>Timer resets are based on trusted browser user-interaction events such as pointer, keyboard, wheel, touch, input, and change events. DOM changes, animations, network activity, media playback, and synthetic script-generated events do not reset the inactivity timer.</p>
@@ -30,7 +36,7 @@
   <p>On organization-managed devices, an administrator may provide EdgeClose rules through Edge's managed extension policy. Managed policy rules take precedence over local user settings. The extension does not transmit managed-policy values to the developer.</p>
 
   <h2>Your controls</h2>
-  <p>You control which websites are monitored, the timeout, warning period, daily session, and warning sound when the extension is not administrator-managed. The toolbar provides temporary protection pause controls. Removing configured websites stops future monitoring. The persistent audit file in Downloads can be deleted by the user at any time.</p>
+  <p>You control which websites are monitored, the timeout, warning period, schedule, and warning sound when the extension is not administrator-managed. Temporary pause and resume are available only from the password-protected Options page. Removing the extension removes its extension storage according to Edge's extension behavior, but existing encrypted backup files in Downloads remain unless the user deletes them.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions, use the support contact published with the EdgeClose listing.</p>
