@@ -1,0 +1,29 @@
+name: Run EdgeClose v1.6.5 rebuild
+
+on:
+  push:
+    paths:
+      - ".github/workflows/run-rebuild-v165.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild from v1.6.2
+        run: bash rebuild-v165.sh
+      - name: Remove runner files
+        shell: bash
+        run: |
+          rm -f rebuild-v165.sh .github/workflows/rebuild-v165.yml .github/workflows/run-rebuild-v165.yml
+          git add -A
+          git commit -m "Finalize EdgeClose v1.6.5 rebuild" || exit 0
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
