@@ -1,6 +1,20 @@
 const DEFAULT_SETTINGS = { sites: [] };
 const DEFAULT_TIMEOUT_SECONDS = 900;
 const DEFAULT_WARNING_SECONDS = 10;
+const AUTH_HASH_KEY = "edgeclose-settings-password-hash";
+const AUTH_SALT_KEY = "edgeclose-settings-password-salt";
+const PBKDF2_ITERATIONS = 150000;
+
+const authGate = document.querySelector("#auth-gate");
+const authDescription = document.querySelector("#auth-description");
+const setupForm = document.querySelector("#setup-form");
+const setupPassword = document.querySelector("#setup-password");
+const setupConfirm = document.querySelector("#setup-confirm");
+const setupError = document.querySelector("#setup-error");
+const unlockForm = document.querySelector("#unlock-form");
+const unlockPassword = document.querySelector("#unlock-password");
+const unlockError = document.querySelector("#unlock-error");
+const protectedContent = document.querySelector("#protected-content");
 
 const form = document.querySelector("#settings-form");
 const siteList = document.querySelector("#site-list");
@@ -17,7 +31,153 @@ const managedNotice = document.querySelector("#managed-notice");
 const currentVersion = chrome.runtime.getManifest().version;
 const repositoryUrl = "https://github.com/ajayraikvar/EdgeClose";
 
-installedVersion.textContent = `v${currentVersion}`;
+function bytesToBase64(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function derivePasswordHash(password, saltBytes) {
+  const passwordBytes = new TextEncoder().encode(password);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    passwordBytes,
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: saltBytes,
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256"
+    },
+    key,
+    256
+  );
+  return new Uint8Array(bits);
+}
+
+function constantTimeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left[index] ^ right[index];
+  }
+  return difference === 0;
+}
+
+async function hasPassword() {
+  const stored = await chrome.storage.local.get([AUTH_HASH_KEY, AUTH_SALT_KEY]);
+  return Boolean(stored[AUTH_HASH_KEY] && stored[AUTH_SALT_KEY]);
+}
+
+async function setPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await derivePasswordHash(password, salt);
+  await chrome.storage.local.set({
+    [AUTH_HASH_KEY]: bytesToBase64(hash),
+    [AUTH_SALT_KEY]: bytesToBase64(salt)
+  });
+}
+
+async function verifyPassword(password) {
+  const stored = await chrome.storage.local.get([AUTH_HASH_KEY, AUTH_SALT_KEY]);
+  if (!stored[AUTH_HASH_KEY] || !stored[AUTH_SALT_KEY]) return false;
+  const salt = base64ToBytes(stored[AUTH_SALT_KEY]);
+  const expectedHash = base64ToBytes(stored[AUTH_HASH_KEY]);
+  const actualHash = await derivePasswordHash(password, salt);
+  return constantTimeEqual(actualHash, expectedHash);
+}
+
+function showUnlockForm() {
+  authDescription.textContent = "Enter your EdgeClose password to manage the extension settings.";
+  setupForm.hidden = true;
+  unlockForm.hidden = false;
+  unlockPassword.value = "";
+  unlockPassword.focus();
+}
+
+function showSetupForm() {
+  authDescription.textContent = "This is the first time EdgeClose settings are opened. Create a password to protect them.";
+  unlockForm.hidden = true;
+  setupForm.hidden = false;
+  setupPassword.focus();
+}
+
+function unlockSettings() {
+  authGate.hidden = true;
+  protectedContent.hidden = false;
+  installedVersion.textContent = `v${currentVersion}`;
+  loadSettings();
+  checkForUpdates();
+}
+
+setupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setupError.textContent = "";
+  const password = setupPassword.value;
+  const confirmation = setupConfirm.value;
+
+  if (password.length < 8) {
+    setupError.textContent = "Password must be at least 8 characters.";
+    return;
+  }
+  if (password !== confirmation) {
+    setupError.textContent = "Passwords do not match.";
+    return;
+  }
+
+  setupForm.querySelector("button[type=submit]").disabled = true;
+  try {
+    await setPassword(password);
+    unlockSettings();
+  } catch {
+    setupError.textContent = "Could not set the password. Please try again.";
+  } finally {
+    setupForm.querySelector("button[type=submit]").disabled = false;
+  }
+});
+
+unlockForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  unlockError.textContent = "";
+  const password = unlockPassword.value;
+  const submitButton = unlockForm.querySelector("button[type=submit]");
+  submitButton.disabled = true;
+  try {
+    if (await verifyPassword(password)) {
+      unlockSettings();
+    } else {
+      unlockError.textContent = "Incorrect password.";
+      unlockPassword.select();
+    }
+  } catch {
+    unlockError.textContent = "Could not verify the password. Please try again.";
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+async function initializeAuth() {
+  try {
+    if (await hasPassword()) {
+      showUnlockForm();
+    } else {
+      showSetupForm();
+    }
+  } catch {
+    authDescription.textContent = "EdgeClose could not access its local settings. Reload the page and try again.";
+    setupForm.hidden = true;
+    unlockForm.hidden = true;
+  }
+}
 
 function showStatus(message) {
   status.textContent = message;
@@ -131,6 +291,5 @@ async function checkForUpdates() {
 
 checkUpdatesButton.addEventListener("click", checkForUpdates);
 
-loadSettings();
-checkForUpdates();
+initializeAuth();
 window.setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
