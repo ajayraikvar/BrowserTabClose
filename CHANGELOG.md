@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.3
+
+- Address certification feedback for monitored-tab closing reliability.
+- Keep the background service worker authoritative for the actual close deadline.
+- Add a page-side deadline signal as a second close trigger so short configured timeouts are not dependent on alarm precision alone.
+- Retain per-tab activity isolation, schedule-aware rules, frame activity tracking, and managed-setting alarm refresh from v1.3.2.
+- Publish the package as `EdgeClose-1.3.3.zip`.
+
 ## v1.3.2
 
 - Fix per-tab activity state updates so concurrent tab activity cannot overwrite another tab's timestamp.
