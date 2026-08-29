@@ -17,8 +17,11 @@
   <p>EdgeClose stores website patterns, timeout settings, warning settings, schedule times, sound preferences, and temporary per-tab activity timestamps in Microsoft Edge extension storage on your device. It also stores a temporary pause state and a bounded local audit log containing EdgeClose management events. The audit log intentionally excludes passwords, password hashes, salts, browsing URLs, page titles, rule patterns, tokens, and secrets.</p>
   <p>The settings password is never stored in plaintext. EdgeClose stores a randomly salted PBKDF2/SHA-256 password verifier and its iteration count locally. Passwords are not transmitted to the developer, GitHub, analytics services, or websites.</p>
 
+  <h2>Persistent audit copy</h2>
+  <p>EdgeClose also maintains a sanitized audit-log copy in the browser's Downloads folder at <code>EdgeClose/audit-log.json</code>. This is a normal user file and is independent of the extension's storage, so an existing copy remains on the computer if the extension is later removed. The extension cannot record a new uninstall event after it has been removed.</p>
+
   <h2>Data shared</h2>
-  <p>EdgeClose does not send browsing history, page contents, keystrokes, mouse actions, passwords, or stored settings to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.</p>
+  <p>EdgeClose does not send browsing history, page contents, keystrokes, mouse actions, passwords, stored settings, or audit-log data to the developer or any analytics provider. The Options page may request public release metadata from the GitHub API to display available EdgeClose versions; no password, browsing URL, page content, or audit-log data is included in that request.</p>
 
   <h2>User interaction</h2>
   <p>Timer resets are based on trusted browser user-interaction events such as pointer, keyboard, wheel, touch, input, and change events. DOM changes, animations, network activity, media playback, and synthetic script-generated events do not reset the inactivity timer.</p>
@@ -27,7 +30,7 @@
   <p>On organization-managed devices, an administrator may provide EdgeClose rules through Edge's managed extension policy. Managed policy rules take precedence over local user settings. The extension does not transmit managed-policy values to the developer.</p>
 
   <h2>Your controls</h2>
-  <p>You control which websites are monitored, the timeout, warning period, daily session, and warning sound when the extension is not administrator-managed. The toolbar provides temporary protection pause controls. Removing configured websites stops future monitoring. Removing the extension removes its stored extension data according to Edge's extension storage behavior.</p>
+  <p>You control which websites are monitored, the timeout, warning period, daily session, and warning sound when the extension is not administrator-managed. The toolbar provides temporary protection pause controls. Removing configured websites stops future monitoring. The persistent audit file in Downloads can be deleted by the user at any time.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions, use the support contact published with the EdgeClose listing.</p>
