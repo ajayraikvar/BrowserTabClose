@@ -25,7 +25,7 @@ jobs:
           s=p.read_text()
           s=s.replace("import json,re\n", "import json,re,subprocess\n")
           s=s.replace("pp=git_file('privacy-policy.html')", "pp=Path('privacy-policy.html').read_text()")
-          s=s.replace("ch=git_file('CHANGELOG.md')", "ch=subprocess.check_output(['git','show',f'{BASE}:CHANGELOG.md'],text=True)")
+          s=s.replace("ch=git_file('CHANGELOG.md')", "ch=subprocess.check_output(['git','show','v1.6.2:CHANGELOG.md'],text=True)")
           p.write_text(s)
           PY
       - name: Rebuild from v1.6.2 canonical source
