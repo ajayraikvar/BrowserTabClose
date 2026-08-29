@@ -35,13 +35,27 @@ function render() {
   const countdown = document.createElement("b");
   countdown.textContent = `Closing in ${formatTime(remainingSeconds)}`;
   panel.append(heading, text, countdown);
-  if (soundEnabled && !warningSoundPlayed) { warningSoundPlayed = true; playWarningSound(); }
+  if (soundEnabled && !warningSoundPlayed) {
+    warningSoundPlayed = true;
+    playWarningSound();
+  }
+}
+
+function initAudioFromGesture() {
+  if (!soundEnabled || audioContext) return;
+  try {
+    audioContext = new AudioContext();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+  } catch {
+    audioContext = null;
+  }
 }
 
 function playWarningSound() {
   try {
-    if (!audioContext) audioContext = new AudioContext();
-    if (audioContext.state === "suspended") audioContext.resume();
+    if (!audioContext || audioContext.state !== "running") return;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     oscillator.frequency.value = 880;
@@ -53,7 +67,7 @@ function playWarningSound() {
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 0.35);
   } catch {
-    // Warning UI remains useful even when browser audio is unavailable.
+    // Visual warning remains available when browser audio is blocked.
   }
 }
 
@@ -84,6 +98,10 @@ chrome.runtime.onMessage.addListener((message) => {
   deadlineAt = Number(message.deadlineAt) || (Date.now() + remainingSeconds * 1000);
   scheduleActive = message.scheduleActive !== false;
   soundEnabled = message.soundEnabled !== false;
+  if (!soundEnabled && audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
   if (idleState === "active") warningSoundPlayed = false;
   armDeadlineTimer();
   render();
@@ -96,10 +114,7 @@ function reportActivity() {
 ["pointerdown", "keydown", "wheel", "touchstart", "input", "change"].forEach((eventName) => {
   window.addEventListener(eventName, (event) => {
     if (!event.isTrusted) return;
-    if (soundEnabled && !audioContext) {
-      try { audioContext = new AudioContext(); } catch { audioContext = null; }
-    }
-    if (soundEnabled && audioContext?.state === "suspended") audioContext.resume().catch(() => {});
+    initAudioFromGesture();
     window.clearTimeout(activityTimer);
     activityTimer = window.setTimeout(reportActivity, 150);
   }, { capture: true, passive: true });
