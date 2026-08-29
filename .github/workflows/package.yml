@@ -1,4 +1,4 @@
-# Release pipeline: every validated source change builds and publishes the matching package.
+# Release pipeline: every versioned source change builds and publishes the matching package.
 name: Build extension package
 
 on:
@@ -8,11 +8,12 @@ on:
       - "manifest.json"
       - "VERSION"
       - "content.js"
-      - "background-v164.js"
+      - "content.css"
       - "options.html"
+      - "options.css"
       - "options.js"
-      - "options-pro-v164.js"
       - "privacy-policy.html"
+      - "managed_schema.json"
   workflow_dispatch:
 
 permissions:
@@ -26,26 +27,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build package
+        shell: bash
         run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./manifest.json').version")
+          SUFFIX=$(echo "$VERSION" | tr -d '.')
+          WORKER="background-v${SUFFIX}.js"
+          PRO="options-pro-v${SUFFIX}.js"
           rm -f EdgeClose-*.zip
-          zip -r EdgeClose-${GITHUB_SHA}.zip \
+          test -s "$WORKER"
+          test -s "$PRO"
+          zip -r "EdgeClose-${VERSION}.zip" \
             manifest.json \
-            background-v163.js \
-            background-v164.js \
+            "$WORKER" \
             content.js \
             content.css \
             options.html \
             options.css \
             options.js \
-            options-pro-v164.js \
+            "$PRO" \
             managed_schema.json \
             privacy-policy.html
-
-      - name: Rename package to manifest version
-        shell: bash
-        run: |
-          VERSION=$(node -p "require('./manifest.json').version")
-          mv "EdgeClose-${GITHUB_SHA}.zip" "EdgeClose-${VERSION}.zip"
+          unzip -t "EdgeClose-${VERSION}.zip"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Commit package
