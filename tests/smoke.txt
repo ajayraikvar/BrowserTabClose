@@ -1,0 +1,1 @@
+Browser-level tests still need to be run manually in Microsoft Edge before release.
