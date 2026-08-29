@@ -59,11 +59,9 @@ jobs:
         shell: bash
         run: |
           rm -f rebuild-v165-final.sh rebuild-v165-clean.sh rebuild-v165.sh
-          rm -f .github/workflows/rebuild-v165.yml .github/workflows/run-rebuild-v165.yml .github/workflows/run-clean-v165.yml .github/workflows/run-final-v165.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- ':!*.yml' ':!*.yaml'
-          git add -f FORCE_REBUILD_TRIGGER.txt || true
+          git add -A
           git commit -m "Finalize complete EdgeClose v1.6.5 source" || exit 0
           git fetch origin main
           git rebase origin/main
