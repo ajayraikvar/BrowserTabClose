@@ -17,8 +17,52 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Patch rebuild script
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('rebuild-v165-final.sh')
+          s=p.read_text()
+          needle="Path('background-v165.js').write_text(bg)"
+          insert="bg=re.sub(r'if \\(message\\.type === \\\"edgeclose-backup-now\\\"\\) \\{.*?return true; \\}', '', bg); bg=bg.replace('queueBackup();','')\n"
+          if needle not in s: raise SystemExit('background write marker not found')
+          s=s.replace(needle, insert+needle, 1)
+          p.write_text(s)
+          PY
       - name: Rebuild complete source from v1.6.2
         run: bash rebuild-v165-final.sh
+      - name: Verify final source
+        shell: bash
+        run: |
+          test "$(node -p "require('./manifest.json').version")" = "1.6.5"
+          node --check background-v165.js
+          node --check content.js
+          node --check options.js
+          node --check options-pro-v165.js
+          test -s background-v165.js
+          test -s options.js
+          test -s options-pro-v165.js
+          ! grep -q 'edgeclose-backup-now' background-v165.js
+          ! grep -q 'queueBackup' background-v165.js
+          ! grep -q 'config-audit.enc' background-v165.js
+          ! grep -q 'encryptedBackup' background-v165.js
+          ! grep -q 'api.github.com' manifest.json options.html options.js
+          test "$(grep -c 'EdgeClose/audit-log.json' background-v165.js)" -eq 1
+          ! test -e background-v160.js
+          ! test -e background-v163.js
+          ! test -e background-v164.js
+          ! test -e backup-lifecycle.js
+          ! test -e popup.js
+      - name: Update package workflow filenames
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/package.yml')
+          s=p.read_text().replace('background-v164.js','background-v165.js').replace('options-pro-v164.js','options-pro-v165.js')
+          p.write_text(s)
+          PY
       - name: Finalize and push
         shell: bash
         run: |
