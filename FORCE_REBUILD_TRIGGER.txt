@@ -1,0 +1,1 @@
+Trigger final source rebuild from the complete v1.6.2 baseline.
