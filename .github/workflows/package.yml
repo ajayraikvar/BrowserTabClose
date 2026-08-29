@@ -1,3 +1,4 @@
+# Release pipeline: every versioned main push builds and publishes the matching package.
 name: Build extension package
 
 on:
