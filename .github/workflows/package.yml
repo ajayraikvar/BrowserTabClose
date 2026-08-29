@@ -4,8 +4,9 @@ name: Build extension package
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "EdgeClose-*.zip"
+    paths:
+      - "manifest.json"
+      - "VERSION"
   workflow_dispatch:
 
 permissions:
@@ -23,13 +24,13 @@ jobs:
           rm -f EdgeClose-*.zip
           zip -r EdgeClose-${GITHUB_SHA}.zip \
             manifest.json \
-            background-v163.js \
+            background-v164.js \
             content.js \
             content.css \
             options.html \
             options.css \
             options.js \
-            options-pro-v163.js \
+            options-pro-v164.js \
             managed_schema.json \
             privacy-policy.html
 
