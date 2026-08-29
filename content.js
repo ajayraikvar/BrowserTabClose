@@ -9,7 +9,6 @@ let warningSeconds = 10;
 let idleState = "active";
 let remainingSeconds = timeoutSeconds;
 let deadlineAt = 0;
-let isActiveTab = false;
 let scheduleActive = true;
 let activityTimer;
 let deadlineTimer;
@@ -25,23 +24,18 @@ function formatTime(seconds) {
 }
 
 function render() {
-  if (!scheduleActive) {
-    panel.hidden = true;
-    return;
-  }
-
-  if (idleState === "active" && remainingSeconds > warningSeconds) {
-    panel.hidden = true;
-    return;
-  }
-
+  if (!scheduleActive) { panel.hidden = true; return; }
+  if (idleState === "active" && remainingSeconds > warningSeconds) { panel.hidden = true; return; }
   panel.hidden = false;
-  panel.innerHTML = `<strong>EdgeClose warning</strong><span>You have been inactive. This tab will close soon.</span><b>Closing in ${formatTime(remainingSeconds)}</b>`;
-
-  if (soundEnabled && !warningSoundPlayed) {
-    warningSoundPlayed = true;
-    playWarningSound();
-  }
+  panel.replaceChildren();
+  const heading = document.createElement("strong");
+  heading.textContent = "EdgeClose warning";
+  const text = document.createElement("span");
+  text.textContent = "You have been inactive. This tab will close soon.";
+  const countdown = document.createElement("b");
+  countdown.textContent = `Closing in ${formatTime(remainingSeconds)}`;
+  panel.append(heading, text, countdown);
+  if (soundEnabled && !warningSoundPlayed) { warningSoundPlayed = true; playWarningSound(); }
 }
 
 function playWarningSound() {
@@ -65,8 +59,7 @@ function playWarningSound() {
 
 function armDeadlineTimer() {
   window.clearTimeout(deadlineTimer);
-  if (!deadlineAt || !scheduleActive || !window.top || window.top !== window) return;
-
+  if (!deadlineAt || !scheduleActive || window.top !== window) return;
   const delay = Math.max(0, deadlineAt - Date.now());
   deadlineTimer = window.setTimeout(() => {
     chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
@@ -75,7 +68,6 @@ function armDeadlineTimer() {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
-
   if (message.enabled === false) {
     window.clearTimeout(deadlineTimer);
     deadlineAt = 0;
@@ -85,16 +77,13 @@ chrome.runtime.onMessage.addListener((message) => {
     warningSoundPlayed = false;
     return;
   }
-
   timeoutSeconds = Number(message.timeoutSeconds) || timeoutSeconds;
   warningSeconds = Number(message.warningSeconds) || warningSeconds;
   idleState = message.idleState || "active";
   remainingSeconds = Math.max(0, Number(message.remainingSeconds) || 0);
   deadlineAt = Number(message.deadlineAt) || (Date.now() + remainingSeconds * 1000);
-  isActiveTab = message.isActiveTab === true;
   scheduleActive = message.scheduleActive !== false;
   soundEnabled = message.soundEnabled !== false;
-
   if (idleState === "active") warningSoundPlayed = false;
   armDeadlineTimer();
   render();
@@ -104,19 +93,13 @@ function reportActivity() {
   chrome.runtime.sendMessage({ type: "edgeclose-activity" }).catch(() => {});
 }
 
-["pointerdown", "keydown", "wheel", "touchstart", "input"].forEach((eventName) => {
-  window.addEventListener(eventName, () => {
+["pointerdown", "keydown", "wheel", "touchstart", "input", "change"].forEach((eventName) => {
+  window.addEventListener(eventName, (event) => {
+    if (!event.isTrusted) return;
     if (soundEnabled && !audioContext) {
-      try {
-        audioContext = new AudioContext();
-      } catch {
-        audioContext = null;
-      }
+      try { audioContext = new AudioContext(); } catch { audioContext = null; }
     }
-    if (soundEnabled && audioContext?.state === "suspended") {
-      audioContext.resume().catch(() => {});
-    }
-
+    if (soundEnabled && audioContext?.state === "suspended") audioContext.resume().catch(() => {});
     window.clearTimeout(activityTimer);
     activityTimer = window.setTimeout(reportActivity, 150);
   }, { capture: true, passive: true });
@@ -127,8 +110,6 @@ reportActivity();
 setInterval(() => {
   if (!scheduleActive || !deadlineAt) return;
   remainingSeconds = Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000));
-  if (remainingSeconds <= warningSeconds && remainingSeconds > 0) {
-    idleState = "warning";
-  }
+  if (remainingSeconds <= warningSeconds && remainingSeconds > 0) idleState = "warning";
   render();
 }, 1000);
