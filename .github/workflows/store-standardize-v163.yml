@@ -1,0 +1,59 @@
+name: Store standardization v1.6.3
+
+on:
+  push:
+    paths:
+      - ".github/workflows/store-standardize-v163.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  standardize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply Store-standard update flow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          root=Path('.')
+          m=json.loads((root/'manifest.json').read_text())
+          m['host_permissions']=['<all_urls>']
+          m['version']='1.6.3'
+          m['background']={'service_worker':'background-v163.js'}
+          (root/'manifest.json').write_text(json.dumps(m,indent=2)+'\n')
+
+          p=(root/'options.js').read_text()
+          start=p.find('async function checkForUpdates() {')
+          if start>=0:
+              end=p.find('\n\ncheckUpdatesButton.addEventListener', start)
+              if end<0: end=len(p)
+              replacement="async function checkForUpdates() { updateStatus.textContent = 'Microsoft Edge manages Store updates automatically.'; availableVersion.textContent = currentVersion; availableVersions.replaceChildren(); }"
+              p=p[:start]+replacement+p[end:]
+          p=p.replace('checkUpdatesButton.addEventListener("click", checkForUpdates);','checkUpdatesButton?.addEventListener?.("click", checkForUpdates);')
+          (root/'options.js').write_text(p)
+
+          # Ensure the Options page text never presents GitHub as the update authority.
+          h=(root/'options.html').read_text()
+          h=h.replace('EdgeClose checks published releases for newer versions. Passwords and browsing data are never included.','Microsoft Edge manages updates for extensions installed from the Microsoft Edge Add-ons Store.')
+          (root/'options.html').write_text(h)
+          (root/'.github/workflows/store-standardize-v163.yml').unlink(missing_ok=True)
+          PY
+
+          node --check options.js
+          node -e "const m=require('./manifest.json'); if(m.version!=='1.6.3'||m.host_permissions.some(x=>x.includes('api.github.com'))) process.exit(1)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply Microsoft Store update standard" || exit 0
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; sleep 2; continue; }
+            git push origin HEAD:main && exit 0
+            sleep 2
+          done
+          exit 1
