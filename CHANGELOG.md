@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7.1
+
+- Enhanced extension features and performance improvements.
+- Updated UI components and styling.
+- Improved security and privacy controls.
+- Keep the settings password gate, timer engine, policy precedence, audit controls, and privacy protections from v1.6.6.
+
 ## v1.5.0
 
 - Refresh the Options page with a polished Pro-style dashboard and clearer information hierarchy.
