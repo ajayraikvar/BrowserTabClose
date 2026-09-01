@@ -26,6 +26,33 @@
   text-transform: uppercase;
 }
 
+.edgeclose-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.edgeclose-dismiss {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #a8432b;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.edgeclose-dismiss:hover,
+.edgeclose-dismiss:focus-visible {
+  background: rgb(217 93 57 / 12%);
+  outline: none;
+}
+
 .edgeclose-panel b {
   font-size: 14px;
 }

@@ -4,6 +4,7 @@ const DEFAULT_WARNING_SECONDS = 10;
 const AUTH_HASH_KEY = "edgeclose-settings-password-hash";
 const AUTH_SALT_KEY = "edgeclose-settings-password-salt";
 const AUTH_ITERATIONS_KEY = "edgeclose-settings-password-iterations";
+const CHILD_TAB_KEY = "edgeclose-child-tab-inherit";
 const FAILED_ATTEMPTS_KEY = "edgeclose-auth-failed-attempts";
 const LOCKOUT_UNTIL_KEY = "edgeclose-auth-lockout-until";
 const PBKDF2_ITERATIONS = 310000;
@@ -32,8 +33,13 @@ const checkUpdatesButton = $("#check-updates");
 const updateStatus = $("#update-status");
 const installedVersion = $("#installed-version");
 const availableVersion = $("#available-version");
-const availableVersions = $("#available-versions");
 const managedNotice = $("#managed-notice");
+const childTabToggle = $("#child-tab-toggle");
+const childTabManagedNotice = $("#child-tab-managed-notice");
+const exportButton = $("#export-settings");
+const importTrigger = $("#import-settings-trigger");
+const importFile = $("#import-settings-file");
+const backupStatus = $("#backup-status");
 const policySource = $("#policy-source");
 const policyPrecedence = $("#policy-precedence");
 const ruleCount = $("#rule-count");
@@ -49,7 +55,6 @@ const newPasswordConfirm = $("#new-password-confirm");
 const changeStrength = $("#change-strength");
 const changePasswordStatus = $("#change-password-status");
 const currentVersion = chrome.runtime.getManifest().version;
-const repositoryUrl = "https://github.com/ajayraikvar/EdgeClose";
 
 function bytesToBase64(bytes) { let binary = ""; bytes.forEach((byte) => { binary += String.fromCharCode(byte); }); return btoa(binary); }
 function base64ToBytes(value) { const binary = atob(value); return Uint8Array.from(binary, (character) => character.charCodeAt(0)); }
@@ -158,6 +163,7 @@ async function checkLockout() {
 }
 
 function unlockSettings() {
+  if(!authGate||!protectedContent)return;
   authGate.hidden = true;
   protectedContent.hidden = false;
   installedVersion.textContent = `v${currentVersion}`;
@@ -235,28 +241,35 @@ function createSiteRow(site = { pattern: "", timeoutSeconds: DEFAULT_TIMEOUT_SEC
 
 async function loadSettings() {
   siteList.replaceChildren();
-  const managed = await chrome.storage.managed.get({ sites: [] }).catch(() => ({ sites: [] }));
-  const settings = await chrome.storage.local.get({ sites: [], patterns: [] });
+  const managed = await chrome.storage.managed.get({ sites: [], childTabInheritance: undefined }).catch(() => ({ sites: [] }));
+  const settings = await chrome.storage.local.get({ sites: [], patterns: [], [CHILD_TAB_KEY]: true });
   const managedMode = Array.isArray(managed.sites) && managed.sites.length > 0;
   const configuredSites = managedMode ? managed.sites : (Array.isArray(settings.sites) && settings.sites.length ? settings.sites : settings.patterns.map((pattern) => ({ pattern })));
   configuredSites.forEach((site) => { createSiteRow(site); if (managedMode) siteList.lastElementChild.querySelectorAll("input, button").forEach((control) => { control.disabled = true; }); });
   emptySites.hidden = configuredSites.length > 0;
   addSiteButton.disabled = managedMode; resetButton.disabled = managedMode; form.querySelector("[type=submit]").disabled = managedMode; managedNotice.hidden = !managedMode;
+  const childTabManaged = typeof managed.childTabInheritance === "boolean";
+  if (childTabToggle) { childTabToggle.checked = childTabManaged ? managed.childTabInheritance : settings[CHILD_TAB_KEY] !== false; childTabToggle.disabled = childTabManaged || managedMode; }
+  if (childTabManagedNotice) childTabManagedNotice.hidden = !childTabManaged;
+  if (exportButton) exportButton.disabled = managedMode;
+  if (importTrigger) importTrigger.disabled = managedMode;
 }
 
-async function saveSettings(sites) { await chrome.storage.local.set({ sites }); await sendAudit("settings_saved", { ruleCount: sites.length }); await refreshDashboard(); }
+async function saveSettings(sites, childTabInheritance) { const payload = { sites }; if (typeof childTabInheritance === "boolean") payload[CHILD_TAB_KEY] = childTabInheritance; await chrome.storage.local.set(payload); await sendAudit("settings_saved", { ruleCount: sites.length }); await refreshDashboard(); }
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const sites = [...siteList.querySelectorAll(".site-row")].map((row) => {
     const timeoutSeconds = Math.max(15, Math.min(86400, Math.round(Number(row.querySelector(".site-timeout").value) || DEFAULT_TIMEOUT_SECONDS)));
     return { pattern: row.querySelector(".site-pattern").value.trim(), timeoutSeconds, warningSeconds: Math.max(1, Math.min(timeoutSeconds - 1, Math.round(Number(row.querySelector(".site-warning").value) || DEFAULT_WARNING_SECONDS))), fromTime: row.querySelector(".site-from").value, toTime: row.querySelector(".site-to").value, soundEnabled: row.querySelector(".site-sound").checked };
   }).filter((site) => site.pattern).slice(0, 100);
-  await saveSettings(sites); showStatus("Settings saved");
+  const childTabInheritance = childTabToggle && !childTabToggle.disabled ? childTabToggle.checked : undefined;
+  await saveSettings(sites, childTabInheritance); showStatus("Settings saved");
 });
 resetButton.addEventListener("click", async () => { await chrome.storage.local.set(DEFAULT_SETTINGS); siteList.replaceChildren(); emptySites.hidden = false; await sendAudit("settings_reset", {}); showStatus("Settings reset"); await refreshDashboard(); });
 addSiteButton.addEventListener("click", () => { createSiteRow(); emptySites.hidden = true; });
 
 async function refreshDashboard() {
+  if(!policySource||!policyPrecedence||!ruleCount||!monitoredCount||!protectionState||!pauseState)return;
   const state = await chrome.runtime.sendMessage({ type: "edgeclose-admin-state" }).catch(() => null);
   if (!state) return;
   policySource.textContent = state.source;
@@ -271,6 +284,7 @@ function formatAuditEvent(event) {
   return String(event || "event").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 async function loadAuditLog() {
+  if(!auditList||!auditEmpty)return;
   const entries = await chrome.runtime.sendMessage({ type: "edgeclose-audit-log" }).catch(() => []);
   auditList.replaceChildren(); auditEmpty.hidden = entries.length > 0;
   entries.slice(0, 50).forEach((entry) => {
@@ -285,23 +299,39 @@ async function loadAuditLog() {
 }
 async function sendAudit(event, metadata) { return chrome.runtime.sendMessage({ type: "edgeclose-audit", event, metadata }).catch(() => null); }
 
-async function checkForUpdates() {
-  updateStatus.textContent = "Checking..."; availableVersion.textContent = "Checking..."; availableVersions.replaceChildren();
-  try {
-    const response = await fetch("https://api.github.com/repos/ajayraikvar/EdgeClose/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } });
-    if (!response.ok) throw new Error("Could not load releases");
-    const releases = await response.json();
-    const newerReleases = releases.filter((release) => release.tag_name && !release.draft && !release.prerelease).filter((release) => compareVersions(release.tag_name, currentVersion) > 0).sort((left, right) => compareVersions(right.tag_name, left.tag_name));
-    if (newerReleases.length === 0) { availableVersion.textContent = currentVersion; updateStatus.textContent = "You have the latest release."; return; }
-    availableVersion.textContent = `v${newerReleases[0].tag_name.replace(/^v/, "")}`;
-    newerReleases.forEach((release) => { const item = document.createElement("li"); const link = document.createElement("a"); link.href = release.html_url || repositoryUrl; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = release.tag_name; item.append(link); availableVersions.append(item); });
-    updateStatus.textContent = "A newer release is available.";
-  } catch {
-    availableVersion.textContent = "Unavailable";
-    const link = document.createElement("a"); link.href = repositoryUrl; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = "Open the GitHub repository";
-    updateStatus.replaceChildren(link, document.createTextNode(" to check for updates."));
-  }
-}
+async function checkForUpdates(){if(updateStatus)updateStatus.textContent='Microsoft Edge manages updates for Store-installed extensions.';if(availableVersion)availableVersion.textContent=currentVersion;}
 
-checkUpdatesButton.addEventListener("click", checkForUpdates);
+checkUpdatesButton?.addEventListener?.("click", checkForUpdates);
+
+function showBackupStatus(message) { if (!backupStatus) return; backupStatus.textContent = message; window.clearTimeout(showBackupStatus.timer); showBackupStatus.timer = window.setTimeout(() => { backupStatus.textContent = ""; }, 4000); }
+
+exportButton?.addEventListener("click", async () => {
+  const stored = await chrome.storage.local.get({ sites: [], [CHILD_TAB_KEY]: true });
+  const payload = { schemaVersion: 1, exportedAt: new Date().toISOString(), edgecloseVersion: currentVersion, sites: stored.sites, childTabInheritance: stored[CHILD_TAB_KEY] !== false };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = `edgeclose-settings-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(link); link.click(); link.remove();
+  URL.revokeObjectURL(url);
+  await sendAudit("settings_exported", { ruleCount: stored.sites.length });
+  showBackupStatus(`Exported ${stored.sites.length} website rule(s).`);
+});
+
+importTrigger?.addEventListener("click", () => importFile?.click());
+importFile?.addEventListener("change", async () => {
+  const file = importFile.files && importFile.files[0];
+  importFile.value = "";
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (!parsed || !Array.isArray(parsed.sites)) throw new Error("invalid");
+    siteList.replaceChildren();
+    parsed.sites.slice(0, 100).forEach((site) => createSiteRow(site));
+    emptySites.hidden = parsed.sites.length > 0;
+    if (childTabToggle && !childTabToggle.disabled && typeof parsed.childTabInheritance === "boolean") childTabToggle.checked = parsed.childTabInheritance;
+    showBackupStatus(`Imported ${parsed.sites.length} website rule(s). Review below, then click Save settings to apply.`);
+  } catch { showBackupStatus("Could not read that file. Choose a valid EdgeClose export."); }
+});
+
 initializeAuth();

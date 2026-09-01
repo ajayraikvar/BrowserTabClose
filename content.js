@@ -15,6 +15,9 @@ let deadlineTimer;
 let soundEnabled = true;
 let warningSoundPlayed = false;
 let audioContext;
+let deadlineRetryTimer;
+let dismissed = false;
+let staleTimer;
 
 function formatTime(seconds) {
   const safeSeconds = Math.max(0, Math.ceil(seconds));
@@ -23,25 +26,68 @@ function formatTime(seconds) {
   return minutes > 0 ? `${minutes}m ${String(remainder).padStart(2, "0")}s` : `${remainder}s`;
 }
 
+function clearStaleTimer() {
+  window.clearTimeout(staleTimer);
+  staleTimer = undefined;
+}
+
 function render() {
-  if (!scheduleActive) { panel.hidden = true; return; }
-  if (idleState === "active" && remainingSeconds > warningSeconds) { panel.hidden = true; return; }
+  if (!scheduleActive || dismissed) { panel.hidden = true; clearStaleTimer(); return; }
+  if (idleState === "active" && remainingSeconds > warningSeconds) { panel.hidden = true; clearStaleTimer(); return; }
   panel.hidden = false;
   panel.replaceChildren();
+  const head = document.createElement("div");
+  head.className = "edgeclose-panel-head";
   const heading = document.createElement("strong");
   heading.textContent = "EdgeClose warning";
+  const dismissButton = document.createElement("button");
+  dismissButton.type = "button";
+  dismissButton.className = "edgeclose-dismiss";
+  dismissButton.setAttribute("aria-label", "Dismiss warning");
+  dismissButton.textContent = "\u00d7";
+  dismissButton.addEventListener("click", () => {
+    dismissed = true;
+    panel.hidden = true;
+    clearStaleTimer();
+  });
+  head.append(heading, dismissButton);
   const text = document.createElement("span");
   text.textContent = "You have been inactive. This tab will close soon.";
   const countdown = document.createElement("b");
   countdown.textContent = `Closing in ${formatTime(remainingSeconds)}`;
-  panel.append(heading, text, countdown);
-  if (soundEnabled && !warningSoundPlayed) { warningSoundPlayed = true; playWarningSound(); }
+  panel.append(head, text, countdown);
+  if (soundEnabled && !warningSoundPlayed) {
+    warningSoundPlayed = true;
+    playWarningSound();
+  }
+  clearStaleTimer();
+  if (remainingSeconds <= 0) {
+    // The countdown reached zero; the tab should close within a moment. If it
+    // does, this content script (and this timer) simply ceases to exist. If it
+    // doesn't — e.g. the page navigated and no longer matches a rule — don't
+    // leave a frozen "Closing in 0s" banner on screen indefinitely.
+    staleTimer = window.setTimeout(() => {
+      scheduleActive = false;
+      panel.hidden = true;
+    }, 6000);
+  }
+}
+
+function initAudioFromGesture() {
+  if (!soundEnabled || audioContext) return;
+  try {
+    audioContext = new AudioContext();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+  } catch {
+    audioContext = null;
+  }
 }
 
 function playWarningSound() {
   try {
-    if (!audioContext) audioContext = new AudioContext();
-    if (audioContext.state === "suspended") audioContext.resume();
+    if (!audioContext || audioContext.state !== "running") return;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     oscillator.frequency.value = 880;
@@ -53,37 +99,39 @@ function playWarningSound() {
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 0.35);
   } catch {
-    // Warning UI remains useful even when browser audio is unavailable.
+    // Visual warning remains available when browser audio is blocked.
   }
 }
 
-function armDeadlineTimer() {
-  window.clearTimeout(deadlineTimer);
-  if (!deadlineAt || !scheduleActive || window.top !== window) return;
-  const delay = Math.max(0, deadlineAt - Date.now());
-  deadlineTimer = window.setTimeout(() => {
-    chrome.runtime.sendMessage({ type: "edgeclose-deadline" }).catch(() => {});
-  }, delay);
-}
+function armDeadlineTimer(){window.clearTimeout(deadlineTimer);window.clearInterval(deadlineRetryTimer);if(!deadlineAt||!scheduleActive||window.top!==window)return;const trigger=()=>chrome.runtime.sendMessage({type:"edgeclose-deadline"}).catch(()=>{});const delay=Math.max(0,deadlineAt-Date.now());deadlineTimer=window.setTimeout(()=>{trigger();let attempts=0;deadlineRetryTimer=window.setInterval(()=>{attempts+=1;if(!scheduleActive||Date.now()+1000<deadlineAt||attempts>8){window.clearInterval(deadlineRetryTimer);return;}trigger();},1000);},delay);}
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "edgeclose-status") return;
   if (message.enabled === false) {
     window.clearTimeout(deadlineTimer);
+    window.clearInterval(deadlineRetryTimer);
+    clearStaleTimer();
     deadlineAt = 0;
     panel.hidden = true;
     scheduleActive = false;
     idleState = "active";
     warningSoundPlayed = false;
+    dismissed = false;
     return;
   }
+  const newDeadline = Number(message.deadlineAt) || (Date.now() + (Number(message.remainingSeconds) || 0) * 1000);
+  if (message.idleState === "active" || newDeadline !== deadlineAt) dismissed = false;
   timeoutSeconds = Number(message.timeoutSeconds) || timeoutSeconds;
   warningSeconds = Number(message.warningSeconds) || warningSeconds;
   idleState = message.idleState || "active";
   remainingSeconds = Math.max(0, Number(message.remainingSeconds) || 0);
-  deadlineAt = Number(message.deadlineAt) || (Date.now() + remainingSeconds * 1000);
+  deadlineAt = newDeadline;
   scheduleActive = message.scheduleActive !== false;
   soundEnabled = message.soundEnabled !== false;
+  if (!soundEnabled && audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
   if (idleState === "active") warningSoundPlayed = false;
   armDeadlineTimer();
   render();
@@ -96,10 +144,7 @@ function reportActivity() {
 ["pointerdown", "keydown", "wheel", "touchstart", "input", "change"].forEach((eventName) => {
   window.addEventListener(eventName, (event) => {
     if (!event.isTrusted) return;
-    if (soundEnabled && !audioContext) {
-      try { audioContext = new AudioContext(); } catch { audioContext = null; }
-    }
-    if (soundEnabled && audioContext?.state === "suspended") audioContext.resume().catch(() => {});
+    initAudioFromGesture();
     window.clearTimeout(activityTimer);
     activityTimer = window.setTimeout(reportActivity, 150);
   }, { capture: true, passive: true });

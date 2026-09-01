@@ -37,6 +37,10 @@
         },
         "required": ["pattern", "timeoutSeconds", "warningSeconds"]
       }
+    },
+    "childTabInheritance": {
+      "type": "boolean",
+      "description": "Whether a tab opened from a monitored website should inherit that website's rule even if the new tab's own URL does not match. Overrides the user's local preference when set."
     }
   }
 }

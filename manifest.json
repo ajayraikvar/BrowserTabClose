@@ -3,18 +3,36 @@
   "name": "EdgeClose",
   "version": "1.7.1",
   "description": "Close selected website tabs after you have been inactive for a chosen time.",
-  "permissions": ["tabs", "storage", "alarms", "downloads"],
-  "host_permissions": ["<all_urls>", "https://api.github.com/*"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "all_frames": true
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background-v171.js"
   },
   "options_page": "options.html",
   "storage": {
@@ -22,7 +40,12 @@
   },
   "action": {
     "default_title": "EdgeClose",
-    "default_popup": "popup.html"
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
